@@ -1,0 +1,110 @@
+{
+  "scan_id": "scan_fixture_upgraded",
+  "store_url": "http://localhost:8102",
+  "pages": [
+    {
+      "step": "product",
+      "viewport": "desktop",
+      "url": "http://localhost:8102/",
+      "screenshot_path": "outputs/scans/scan_fixture_upgraded/screenshots/product_desktop.png",
+      "scripts": [
+        "https://www.sandbox.paypal.com/web-sdk/v6/core"
+      ],
+      "paypal_elements": [],
+      "viewport_height": 900
+    },
+    {
+      "step": "cart",
+      "viewport": "desktop",
+      "url": "http://localhost:8102/cart",
+      "screenshot_path": "outputs/scans/scan_fixture_upgraded/screenshots/cart_desktop.png",
+      "scripts": [
+        "https://www.sandbox.paypal.com/web-sdk/v6/core"
+      ],
+      "paypal_elements": [
+        {
+          "type": "button",
+          "x": 40,
+          "y": 420,
+          "width": 300,
+          "height": 45,
+          "visible_without_scroll": true
+        }
+      ],
+      "viewport_height": 900
+    },
+    {
+      "step": "checkout",
+      "viewport": "desktop",
+      "url": "http://localhost:8102/checkout",
+      "screenshot_path": "outputs/scans/scan_fixture_upgraded/screenshots/checkout_desktop.png",
+      "scripts": [
+        "https://www.sandbox.paypal.com/web-sdk/v6/core"
+      ],
+      "paypal_elements": [
+        {
+          "type": "button",
+          "x": 40,
+          "y": 380,
+          "width": 300,
+          "height": 45,
+          "visible_without_scroll": true
+        }
+      ],
+      "viewport_height": 900
+    },
+    {
+      "step": "product",
+      "viewport": "mobile",
+      "url": "http://localhost:8102/",
+      "screenshot_path": "outputs/scans/scan_fixture_upgraded/screenshots/product_mobile.png",
+      "scripts": [
+        "https://www.sandbox.paypal.com/web-sdk/v6/core"
+      ],
+      "paypal_elements": [],
+      "viewport_height": 844
+    },
+    {
+      "step": "cart",
+      "viewport": "mobile",
+      "url": "http://localhost:8102/cart",
+      "screenshot_path": "outputs/scans/scan_fixture_upgraded/screenshots/cart_mobile.png",
+      "scripts": [
+        "https://www.sandbox.paypal.com/web-sdk/v6/core"
+      ],
+      "paypal_elements": [
+        {
+          "type": "button",
+          "x": 40,
+          "y": 560,
+          "width": 350,
+          "height": 45,
+          "visible_without_scroll": true
+        }
+      ],
+      "viewport_height": 844
+    },
+    {
+      "step": "checkout",
+      "viewport": "mobile",
+      "url": "http://localhost:8102/checkout",
+      "screenshot_path": "outputs/scans/scan_fixture_upgraded/screenshots/checkout_mobile.png",
+      "scripts": [
+        "https://www.sandbox.paypal.com/web-sdk/v6/core"
+      ],
+      "paypal_elements": [
+        {
+          "type": "button",
+          "x": 40,
+          "y": 520,
+          "width": 350,
+          "height": 45,
+          "visible_without_scroll": true
+        }
+      ],
+      "viewport_height": 844
+    }
+  ],
+  "paypal_sdk_version": "v6",
+  "warnings": []
+}
