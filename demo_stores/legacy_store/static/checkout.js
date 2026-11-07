@@ -47,6 +47,10 @@ async function setUpCheckout() {
     onApprove: async function (data) {
       showStatus("Capturing payment...");
       const result = await postJson("/api/orders/" + encodeURIComponent(data.orderID) + "/capture");
+      if (result.status !== "COMPLETED") {
+        showStatus("Payment not completed (status: " + result.status + "). Please try again.", "error");
+        return;
+      }
       clearCart();
       window.location.href = "/success?order=" + encodeURIComponent(result.id);
     },
