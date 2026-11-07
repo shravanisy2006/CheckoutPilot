@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Thank you | {{STORE_NAME}}</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body data-page="success">
+  <header class="site-header">
+    <a class="brand" href="/">{{STORE_NAME}}</a>
+  </header>
+  <main>
+    <div class="card">
+      <h1>Thank you for your order</h1>
+      <p id="order-status" class="ok">Payment captured.</p>
+      <p>PayPal order ID: <strong id="order-id">unknown</strong></p>
+      <a class="button" href="/">Back to the shop</a>
+    </div>
+  </main>
+  <script>
+    const orderId = new URLSearchParams(window.location.search).get("order") || "unknown";
+    document.getElementById("order-id").textContent = orderId;
+  </script>
+</body>
+</html>

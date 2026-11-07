@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Your cart | {{STORE_NAME}}</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body data-page="cart">
+  <header class="site-header">
+    <a class="brand" href="/">{{STORE_NAME}}</a>
+    <a class="cart-link" href="/cart">Cart</a>
+  </header>
+
+  <main>
+    <h1>Your cart</h1>
+    <div class="card">
+      <table class="lines">
+        <thead><tr><th>Item</th><th class="num">Qty</th><th class="num">Price</th></tr></thead>
+        <tbody id="cart-lines"></tbody>
+        <tfoot><tr class="total-row"><td>Total</td><td></td><td class="num" id="cart-total">$0.00</td></tr></tfoot>
+      </table>
+      <p class="empty" id="cart-empty" hidden>Your cart is empty. <a href="/">Go to the shop</a>.</p>
+
+      <!-- Legacy layout: no PayPal button here. Shoppers must go to checkout first. -->
+      <div class="actions" style="margin-top: 20px;">
+        <a class="button" id="go-to-checkout" href="/checkout">Proceed to checkout</a>
+        <button class="button secondary" id="clear-cart" type="button">Empty cart</button>
+      </div>
+    </div>
+  </main>
+
+  <footer class="site-footer">{{STORE_NAME}} is a demo store for CheckoutPilot. No real payments.</footer>
+
+  <script src="/static/cart.js"></script>
+  <script>
+    async function refresh() {
+      const total = await renderCartLines(document.getElementById("cart-lines"));
+      document.getElementById("cart-total").textContent = "$" + total.toFixed(2);
+      const empty = readCart().length === 0;
+      document.getElementById("cart-empty").hidden = !empty;
+      document.getElementById("go-to-checkout").setAttribute("aria-disabled", String(empty));
+    }
+    document.getElementById("clear-cart").addEventListener("click", () => { clearCart(); refresh(); });
+    refresh();
+  </script>
+</body>
+</html>
