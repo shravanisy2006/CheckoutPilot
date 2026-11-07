@@ -1,0 +1,46 @@
+[
+  {
+    "issue_id": "sdk_outdated",
+    "title": "PayPal JavaScript SDK v5 is outdated",
+    "category": "sdk",
+    "severity": "high",
+    "source": "rule",
+    "evidence": "The store loads PayPal JavaScript SDK v5; PayPal's current version is v6.",
+    "screenshot_path": "",
+    "fixable_by_agent": true,
+    "confidence": 1.0
+  },
+  {
+    "issue_id": "no_paypal_on_cart",
+    "title": "PayPal button missing on the cart page",
+    "category": "presentment",
+    "severity": "high",
+    "source": "rule",
+    "evidence": "No PayPal element found on the cart page (desktop, mobile); shoppers only see PayPal at the final checkout step.",
+    "screenshot_path": "outputs/scans/scan_fixture_legacy/screenshots/cart_desktop.png",
+    "fixable_by_agent": true,
+    "confidence": 1.0
+  },
+  {
+    "issue_id": "no_paypal_on_product",
+    "title": "No PayPal button on the product page",
+    "category": "presentment",
+    "severity": "medium",
+    "source": "rule",
+    "evidence": "Shoppers must go to the cart or checkout before PayPal appears.",
+    "screenshot_path": "outputs/scans/scan_fixture_legacy/screenshots/product_desktop.png",
+    "fixable_by_agent": false,
+    "confidence": 1.0
+  },
+  {
+    "issue_id": "button_below_fold_mobile",
+    "title": "PayPal button hidden below the fold on mobile",
+    "category": "mobile",
+    "severity": "medium",
+    "source": "rule",
+    "evidence": "On a mobile screen the shopper must scroll before the PayPal button appears.",
+    "screenshot_path": "outputs/scans/scan_fixture_legacy/screenshots/checkout_mobile.png",
+    "fixable_by_agent": false,
+    "confidence": 1.0
+  }
+]
