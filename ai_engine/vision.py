@@ -5,8 +5,10 @@ Sends cart and checkout screenshots to a vision-capable AI model and turns its
 JSON answer into CheckoutIssue dictionaries.
 
 Provider is chosen with AI_PROVIDER in .env: "anthropic", "openai" or "gemini".
-The model can be overridden with AI_MODEL. Calls use plain HTTP (requests), so
-no extra SDK is needed. Temperature is always 0 so results are repeatable.
+The model can be overridden with AI_MODEL, and AI_FALLBACK_MODEL sets a backup
+model used when the main one is busy. Busy/rate-limited replies are retried
+automatically. Calls use plain HTTP (requests), so no extra SDK is needed.
+Temperature is always 0 so results are repeatable.
 
 Failures raise ModuleError:
     AI_UNAVAILABLE  no API key, network error, or provider error
@@ -17,6 +19,7 @@ import base64
 import hashlib
 import json
 import os
+import time
 from pathlib import Path
 from typing import Callable, Literal
 
@@ -41,12 +44,15 @@ ModelCaller = Callable[[str, str, list[bytes]], str]
 
 MAX_IMAGES = 4                     # keeps cost and latency low
 MAX_IMAGE_BYTES = 4_500_000        # providers reject very large images
-REQUEST_TIMEOUT_SECONDS = 60
+# Newer "thinking" models can be slow with images; change with AI_TIMEOUT_SECONDS in .env.
+REQUEST_TIMEOUT_SECONDS = int(os.getenv("AI_TIMEOUT_SECONDS", "120") or 120)
+RETRYABLE_STATUS = {429, 500, 502, 503, 504}   # busy / rate limited: usually temporary
+RETRY_WAITS_SECONDS = (3, 8)                   # wait 3 s, then 8 s, before giving up
 
 DEFAULT_MODELS = {
     "anthropic": "claude-sonnet-4-5",
     "openai": "gpt-4o-mini",
-    "gemini": "gemini-2.5-flash",
+    "gemini": "gemini-3.8-flash",  # 2.5-flash is no longer offered to new users
 }
 API_KEY_VARS = {
     "anthropic": "ANTHROPIC_API_KEY",
@@ -134,17 +140,28 @@ def _b64(image: bytes) -> str:
 
 
 def _post(url: str, headers: dict, body: dict) -> dict:
-    """POST JSON and return the decoded reply, or raise AI_UNAVAILABLE."""
-    try:
-        response = requests.post(url, headers=headers, json=body, timeout=REQUEST_TIMEOUT_SECONDS)
-    except requests.RequestException as error:
-        raise ModuleError(AI_UNAVAILABLE, f"Could not reach the AI provider: {error}") from error
-    if response.status_code != 200:
+    """
+    POST JSON and return the decoded reply, or raise AI_UNAVAILABLE.
+
+    Busy or rate-limited replies (429, 500, 502, 503, 504) are retried after
+    short waits (RETRY_WAITS_SECONDS), because they are usually temporary.
+    """
+    for attempt in range(len(RETRY_WAITS_SECONDS) + 1):
+        try:
+            response = requests.post(url, headers=headers, json=body, timeout=REQUEST_TIMEOUT_SECONDS)
+        except requests.RequestException as error:
+            raise ModuleError(AI_UNAVAILABLE, f"Could not reach the AI provider: {error}") from error
+
+        if response.status_code == 200:
+            return response.json()
+        if response.status_code in RETRYABLE_STATUS and attempt < len(RETRY_WAITS_SECONDS):
+            time.sleep(RETRY_WAITS_SECONDS[attempt])
+            continue
         raise ModuleError(
             AI_UNAVAILABLE,
             f"AI provider returned HTTP {response.status_code}: {response.text[:300]}",
         )
-    return response.json()
+    raise ModuleError(AI_UNAVAILABLE, "AI provider did not answer.")  # pragma: no cover
 
 
 def _call_anthropic(api_key: str, model: str, system: str, prompt: str, images: list[bytes]) -> str:
@@ -223,12 +240,46 @@ def get_default_caller() -> ModelCaller:
     if not api_key or api_key.startswith("your-"):
         raise ModuleError(AI_UNAVAILABLE, f"{API_KEY_VARS[provider]} is not set in .env.")
     model = os.getenv("AI_MODEL", "").strip() or DEFAULT_MODELS[provider]
+    fallback_model = os.getenv("AI_FALLBACK_MODEL", "").strip()
     provider_call = _PROVIDERS[provider]
 
     def call(system: str, prompt: str, images: list[bytes]) -> str:
-        return provider_call(api_key, model, system, prompt, images)
+        try:
+            return provider_call(api_key, model, system, prompt, images)
+        except ModuleError as error:
+            # Main model busy or unavailable: try the backup model once, if one is set.
+            if error.code != AI_UNAVAILABLE or not fallback_model or fallback_model == model:
+                raise
+            return provider_call(api_key, fallback_model, system, prompt, images)
 
     return call
+
+
+def list_gemini_models() -> list[str]:
+    """
+    Return the Gemini model names this API key can use for generateContent.
+
+    Raises ModuleError(AI_UNAVAILABLE) if the key is missing or the request fails.
+    """
+    api_key = os.getenv("GOOGLE_API_KEY", "").strip()
+    if not api_key or api_key.startswith("your-"):
+        raise ModuleError(AI_UNAVAILABLE, "GOOGLE_API_KEY is not set in .env.")
+    try:
+        response = requests.get(
+            "https://generativelanguage.googleapis.com/v1beta/models",
+            headers={"x-goog-api-key": api_key},
+            params={"pageSize": 1000},
+            timeout=30,
+        )
+    except requests.RequestException as error:
+        raise ModuleError(AI_UNAVAILABLE, f"Could not reach Google: {error}") from error
+    if response.status_code != 200:
+        raise ModuleError(AI_UNAVAILABLE, f"Google returned HTTP {response.status_code}: {response.text[:300]}")
+    return sorted(
+        model["name"].removeprefix("models/")
+        for model in response.json().get("models", [])
+        if "generateContent" in model.get("supportedGenerationMethods", [])
+    )
 
 
 # ---------------------------------------------------------------------------

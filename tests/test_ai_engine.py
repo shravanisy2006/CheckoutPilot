@@ -205,3 +205,106 @@ def test_mock_returns_fixture_issues():
 
 def test_mock_upgraded_store_is_clean():
     assert analyze_checkout_mock({"paypal_sdk_version": "v6"}) == []
+
+
+# ------------------------------------------------------- try_vision tool ----
+def test_try_vision_builds_scan_data(tmp_path):
+    from ai_engine.try_vision import build_scan_data
+
+    image = tmp_path / "shot.png"
+    image.write_bytes(b"png")
+    data = build_scan_data([str(image), str(image)], ["cart (mobile)"])
+    assert [(p["step"], p["viewport"]) for p in data["pages"]] == [("cart", "mobile"), ("checkout", "desktop")]
+
+
+def test_try_vision_reports_missing_file(capsys):
+    from ai_engine.try_vision import main
+
+    assert main(["does_not_exist.png"]) == 1
+    assert "File not found" in capsys.readouterr().out
+
+
+def test_try_vision_reports_missing_key(tmp_path, monkeypatch, capsys):
+    from ai_engine.try_vision import main
+
+    monkeypatch.setenv("AI_PROVIDER", "gemini")
+    monkeypatch.setenv("GOOGLE_API_KEY", "")
+    image = tmp_path / "shot.png"
+    image.write_bytes(b"png")
+    assert main([str(image)]) == 2
+    assert "AI_UNAVAILABLE" in capsys.readouterr().out
+
+
+# ------------------------------------------------------- retries / fallback --
+class _Reply:
+    def __init__(self, status, payload=None):
+        self.status_code = status
+        self.text = json.dumps(payload or {"error": "busy"})
+        self._payload = payload or {}
+
+    def json(self):
+        return self._payload
+
+
+GEMINI_OK = {"candidates": [{"content": {"parts": [{"text": GOOD_REPLY}]}}]}
+
+
+@pytest.fixture
+def gemini_env(monkeypatch, legacy_with_screenshots):
+    monkeypatch.setenv("AI_PROVIDER", "gemini")
+    monkeypatch.setenv("GOOGLE_API_KEY", "test-key")
+    monkeypatch.delenv("AI_MODEL", raising=False)
+    monkeypatch.delenv("AI_FALLBACK_MODEL", raising=False)
+    monkeypatch.setattr("ai_engine.vision.time.sleep", lambda seconds: None)
+    return legacy_with_screenshots
+
+
+def test_busy_reply_is_retried_then_succeeds(gemini_env, monkeypatch):
+    replies = iter([_Reply(503), _Reply(200, GEMINI_OK)])
+    monkeypatch.setattr("ai_engine.vision.requests.post", lambda *a, **k: next(replies))
+    issues, _ = run_vision_checks(gemini_env)
+    assert len(issues) == 2
+
+
+def test_busy_three_times_gives_ai_unavailable(gemini_env, monkeypatch):
+    calls = []
+    monkeypatch.setattr("ai_engine.vision.requests.post", lambda *a, **k: calls.append(1) or _Reply(503))
+    with pytest.raises(ModuleError) as error:
+        run_vision_checks(gemini_env)
+    assert error.value.code == "AI_UNAVAILABLE" and len(calls) == 3
+
+
+def test_fallback_model_used_when_main_model_busy(gemini_env, monkeypatch):
+    monkeypatch.setenv("AI_FALLBACK_MODEL", "backup-model")
+    urls = []
+
+    def fake_post(url, **kwargs):
+        urls.append(url)
+        return _Reply(200, GEMINI_OK) if "backup-model" in url else _Reply(503)
+
+    monkeypatch.setattr("ai_engine.vision.requests.post", fake_post)
+    issues, _ = run_vision_checks(gemini_env)
+    assert len(issues) == 2 and "backup-model" in urls[-1]
+
+
+def test_bad_key_is_not_retried(gemini_env, monkeypatch):
+    calls = []
+    monkeypatch.setattr("ai_engine.vision.requests.post", lambda *a, **k: calls.append(1) or _Reply(400))
+    with pytest.raises(ModuleError):
+        run_vision_checks(gemini_env)
+    assert len(calls) == 1
+
+
+def test_list_models_filters_to_generate_content(monkeypatch, capsys):
+    from ai_engine.try_vision import main
+
+    monkeypatch.setenv("GOOGLE_API_KEY", "test-key")
+    payload = {"models": [
+        {"name": "models/model-b", "supportedGenerationMethods": ["generateContent"]},
+        {"name": "models/embed-only", "supportedGenerationMethods": ["embedContent"]},
+        {"name": "models/model-a", "supportedGenerationMethods": ["generateContent", "countTokens"]},
+    ]}
+    monkeypatch.setattr("ai_engine.vision.requests.get", lambda *a, **k: _Reply(200, payload))
+    assert main(["--list-models"]) == 0
+    out = capsys.readouterr().out
+    assert "model-a" in out and "model-b" in out and "embed-only" not in out
