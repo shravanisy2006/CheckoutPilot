@@ -1,0 +1,116 @@
+/* Inkwell & Co. - upgraded demo store styles */
+:root {
+  --ink: #1d2433;
+  --muted: #5d6677;
+  --line: #dfe3ea;
+  --bg: #f7f5f0;
+  --card: #ffffff;
+  --accent: #1f4e79;
+  --accent-text: #ffffff;
+  --ok: #1e7a46;
+  --error: #b42318;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  color: var(--ink);
+  background: var(--bg);
+  line-height: 1.5;
+}
+
+a { color: var(--accent); }
+
+.site-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+  background: var(--card);
+  border-bottom: 1px solid var(--line);
+}
+
+.brand { font-size: 1.4rem; font-weight: bold; text-decoration: none; color: var(--ink); }
+.cart-link { font-family: Arial, sans-serif; text-decoration: none; }
+
+main { max-width: 1040px; margin: 0 auto; padding: 32px 24px 64px; }
+
+h1 { font-size: 1.9rem; margin: 0 0 8px; }
+h2 { font-size: 1.2rem; margin: 0 0 16px; }
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 24px;
+}
+
+/* Product page */
+.product { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; align-items: start; }
+.product-image {
+  background: #ece6da;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 320px;
+}
+.price { font-size: 1.6rem; margin: 8px 0 16px; }
+.description { color: var(--muted); font-family: Arial, sans-serif; }
+
+.qty-row { display: flex; gap: 12px; align-items: center; margin: 20px 0; font-family: Arial, sans-serif; }
+.qty-row input { width: 64px; padding: 8px; border: 1px solid var(--line); border-radius: 6px; }
+
+.button {
+  display: inline-block;
+  padding: 12px 22px;
+  border: 0;
+  border-radius: 6px;
+  background: var(--accent);
+  color: var(--accent-text);
+  font: bold 1rem Arial, sans-serif;
+  text-decoration: none;
+  cursor: pointer;
+}
+.button.secondary { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
+.button[aria-disabled="true"] { opacity: 0.45; pointer-events: none; }
+
+.actions { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+.notice { font-family: Arial, sans-serif; color: var(--ok); min-height: 1.5em; margin-top: 12px; }
+
+/* Cart and summary tables */
+.lines { width: 100%; border-collapse: collapse; font-family: Arial, sans-serif; }
+.lines th, .lines td { text-align: left; padding: 10px 6px; border-bottom: 1px solid var(--line); }
+.lines td.num, .lines th.num { text-align: right; }
+.total-row td { font-weight: bold; border-bottom: 0; }
+.empty { font-family: Arial, sans-serif; color: var(--muted); }
+
+/* Checkout: form left, summary + PayPal right (desktop); stacked on mobile */
+.checkout { display: grid; grid-template-columns: 1.3fr 1fr; gap: 24px; align-items: start; }
+.field { display: flex; flex-direction: column; margin-bottom: 14px; font-family: Arial, sans-serif; }
+.field label { font-size: 0.9rem; color: var(--muted); margin-bottom: 4px; }
+.field input, .field select { padding: 10px; border: 1px solid var(--line); border-radius: 6px; font-size: 1rem; }
+#paypal-button-container { margin-top: 20px; min-height: 50px; }
+#paypal-button-container paypal-button { display: block; width: 100%; }
+#paypal-button-container paypal-button[hidden] { display: none; }
+.express { max-width: 420px; }
+.hint { font: 0.9rem Arial, sans-serif; color: var(--muted); margin: -6px 0 16px; }
+
+/* Upgraded checkout: summary is first in the page (mobile), but sits on the right on desktop. */
+.checkout.upgraded { grid-template-areas: "form summary"; }
+.checkout.upgraded #order-summary { grid-area: summary; }
+.checkout.upgraded #shipping-form { grid-area: form; }
+#order-status { font-family: Arial, sans-serif; margin-top: 12px; min-height: 1.5em; }
+#order-status.error { color: var(--error); }
+#order-status.ok { color: var(--ok); }
+
+.site-footer { text-align: center; color: var(--muted); font: 0.85rem Arial, sans-serif; padding: 24px; }
+
+@media (max-width: 760px) {
+  .product, .checkout { grid-template-columns: 1fr; }
+  .checkout.upgraded { grid-template-areas: "summary" "form"; }
+  .product-image { min-height: 220px; }
+  main { padding: 20px 16px 48px; }
+}

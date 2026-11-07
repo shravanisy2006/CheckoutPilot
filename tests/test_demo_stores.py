@@ -192,3 +192,71 @@ def test_cli_needs_port_for_paths(tmp_path):
     with pytest.raises(SystemExit):
         serve.main([str(tmp_path)])
     assert serve.main([str(tmp_path), "--port", "9999"]) == 1  # no app.py
+
+
+# -------------------------------------------------------- upgraded store ---
+UPGRADED_DIR = LEGACY_DIR.parent / "upgraded_store"
+
+
+@pytest.fixture
+def upgraded():
+    spec = importlib.util.spec_from_file_location("upgraded_store_app", UPGRADED_DIR / "app.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+@pytest.fixture
+def upgraded_client(upgraded):
+    return TestClient(upgraded.app)
+
+
+@pytest.mark.parametrize("path", ["/", "/cart", "/checkout", "/success"])
+def test_upgraded_pages_load(upgraded_client, path):
+    response = upgraded_client.get(path)
+    assert response.status_code == 200 and "{{" not in response.text
+
+
+def test_upgraded_health(upgraded_client):
+    assert upgraded_client.get("/health").json() == {"status": "ok", "store": "upgraded", "paypal_sdk": "v6"}
+
+
+def test_upgraded_fixes_the_flaws(upgraded_client):
+    for path in ("/cart", "/checkout"):
+        page = upgraded_client.get(path).text
+        assert "https://www.sandbox.paypal.com/web-sdk/v6/core" in page
+        assert "paypal.com/sdk/js" not in page  # no v5 left
+        assert 'id="paypal-button-container"' in page and "<paypal-button" in page
+    checkout = upgraded_client.get("/checkout").text
+    assert checkout.index('id="paypal-button-container"') < checkout.index('id="shipping-form"')
+    assert 'id="go-to-checkout"' in upgraded_client.get("/cart").text
+
+
+def test_upgraded_client_token(upgraded, upgraded_client, monkeypatch):
+    class Fake(FakePayPal):
+        def get_client_token(self):
+            return "browser-safe-token"
+    monkeypatch.setattr(upgraded, "_paypal_client", lambda: Fake())
+    assert upgraded_client.get("/api/paypal/client-token").json() == {"accessToken": "browser-safe-token"}
+
+
+def test_upgraded_client_token_error(upgraded, upgraded_client, monkeypatch):
+    class Broken:
+        def get_client_token(self):
+            error = RuntimeError("x")
+            error.code, error.message = "PAYPAL_NOT_CONFIGURED", "missing keys"
+            raise error
+    monkeypatch.setattr(upgraded, "_paypal_client", lambda: Broken())
+    response = upgraded_client.get("/api/paypal/client-token")
+    assert response.status_code == 502 and "PAYPAL_NOT_CONFIGURED" in response.json()["detail"]
+
+
+def test_upgraded_orders_use_server_prices(upgraded, upgraded_client, monkeypatch):
+    FakePayPal.created = []
+    monkeypatch.setattr(upgraded, "_paypal_client", lambda: FakePayPal())
+    response = upgraded_client.post("/api/orders", json={"items": [{"id": "ink-blue", "qty": 3}]})
+    assert response.json()["total"] == "36.00" and FakePayPal.created == [("36.00", "USD")]
+
+
+def test_resolve_upgraded_name():
+    assert serve.resolve_store("upgraded") == (UPGRADED_DIR, 8102)

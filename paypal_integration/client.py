@@ -126,6 +126,30 @@ class PayPalClient:
         self._token_expires_at = time.time() + max(expires_in - TOKEN_SAFETY_MARGIN_SECONDS, 30)
         return self._token
 
+    def get_client_token(self) -> str:
+        """Browser-safe client token for the v6 JavaScript SDK (expires on its own).
+
+        Safe to send to the browser, unlike the secret or the normal access token.
+        Optional: PAYPAL_CLIENT_TOKEN_DOMAINS="https://example.com" (comma-separated)
+        limits where the token may be used.
+        """
+        self._check_ready()
+        data = [("grant_type", "client_credentials"), ("response_type", "client_token")]
+        for domain in filter(None, (d.strip() for d in os.getenv("PAYPAL_CLIENT_TOKEN_DOMAINS", "").split(","))):
+            data.append(("domains[]", domain))
+        response = self._send(
+            "POST", "/v1/oauth2/token",
+            auth=(self.client_id, self.client_secret),
+            data=data,
+            headers={"Accept": "application/json"},
+        )
+        if response.status_code in (401, 403):
+            raise ModuleError(PAYPAL_AUTH_FAILED, "PayPal rejected the client ID / secret.")
+        if response.status_code >= 400:
+            code = PAYPAL_UNAVAILABLE if response.status_code >= 500 else PAYPAL_REQUEST_FAILED
+            raise ModuleError(code, f"Client token request failed: {_paypal_error_text(response)}")
+        return response.json().get("access_token", "")
+
     def _api(self, method: str, path: str, body: dict | None = None, idempotent: bool = False) -> dict:
         """Call a REST API with the bearer token. Retries once if the token expired."""
         request_id = str(uuid.uuid4())  # same ID on retry, so PayPal never creates/captures twice

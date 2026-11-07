@@ -22,6 +22,9 @@ class MockPayPalClient:
     def get_access_token(self) -> str:
         return "mock-token"
 
+    def get_client_token(self) -> str:
+        return "mock-client-token"
+
     def create_order(self, amount, currency: str = "USD") -> dict:
         order_id = "MOCK" + uuid.uuid4().hex[:13].upper()
         self.orders[order_id] = {"id": order_id, "status": "CREATED",

@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="paypal-client-id" content="{{PAYPAL_CLIENT_ID}}">
+  <title>Checkout | {{STORE_NAME}}</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body data-page="checkout">
+  <header class="site-header">
+    <a class="brand" href="/">{{STORE_NAME}}</a>
+    <a class="cart-link" href="/cart">Back to cart</a>
+  </header>
+
+  <main>
+    <h1>Checkout</h1>
+    <!-- Upgrade: the summary + PayPal come first, so on mobile PayPal is visible without scrolling.
+         On desktop CSS still places the summary on the right. -->
+    <div class="checkout upgraded">
+      <aside class="card" id="order-summary">
+        <h2>Order summary</h2>
+        <table class="lines">
+          <tbody id="cart-lines"></tbody>
+          <tfoot><tr class="total-row"><td>Total</td><td></td><td class="num" id="cart-total">$0.00</td></tr></tfoot>
+        </table>
+        <p class="empty" id="cart-empty" hidden>Your cart is empty. <a href="/">Go to the shop</a>.</p>
+        <div id="paypal-button-container">
+          <paypal-button type="pay" hidden></paypal-button>
+        </div>
+        <p id="order-status" role="status"></p>
+      </aside>
+
+      <form class="card" id="shipping-form" autocomplete="on" onsubmit="return false;">
+        <h2>Shipping details</h2>
+        <p class="hint">Paying with PayPal? You can skip this form. PayPal shares your shipping address.</p>
+        <div class="field"><label for="email">Email</label><input id="email" type="email" autocomplete="email"></div>
+        <div class="field"><label for="first-name">First name</label><input id="first-name" autocomplete="given-name"></div>
+        <div class="field"><label for="last-name">Last name</label><input id="last-name" autocomplete="family-name"></div>
+        <div class="field"><label for="phone">Phone</label><input id="phone" type="tel" autocomplete="tel"></div>
+        <div class="field"><label for="address1">Address line 1</label><input id="address1" autocomplete="address-line1"></div>
+        <div class="field"><label for="address2">Address line 2 (optional)</label><input id="address2" autocomplete="address-line2"></div>
+        <div class="field"><label for="city">City</label><input id="city" autocomplete="address-level2"></div>
+        <div class="field"><label for="state">State</label><input id="state" autocomplete="address-level1"></div>
+        <div class="field"><label for="zip">ZIP code</label><input id="zip" autocomplete="postal-code"></div>
+        <div class="field">
+          <label for="country">Country</label>
+          <select id="country" autocomplete="country"><option value="US">United States</option></select>
+        </div>
+        <div class="field">
+          <label for="shipping-method">Shipping method</label>
+          <select id="shipping-method">
+            <option>Standard (5-7 days), free</option>
+          </select>
+        </div>
+      </form>
+    </div>
+  </main>
+
+  <footer class="site-footer">{{STORE_NAME}} is a demo store for CheckoutPilot. Sandbox payments only.</footer>
+
+  <script src="/static/cart.js"></script>
+  <script src="/static/paypal.js"></script>
+  <script>
+    (async function () {
+      const total = await renderCartLines(document.getElementById("cart-lines"));
+      document.getElementById("cart-total").textContent = "$" + total.toFixed(2);
+      if (readCart().length === 0) document.getElementById("cart-empty").hidden = false;
+    })();
+  </script>
+  <!-- PayPal JavaScript SDK v6 -->
+  <script async src="{{PAYPAL_SDK_URL}}" onload="onPayPalWebSdkLoaded()" onerror="onPayPalWebSdkFailed()"></script>
+</body>
+</html>

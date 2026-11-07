@@ -211,3 +211,23 @@ def test_try_paypal_creates_order(monkeypatch, capsys):
     assert try_main([]) == 0
     out = capsys.readouterr().out
     assert "5O190127TN364715T" in out and "tok-1" not in out
+
+
+def test_client_token(monkeypatch):
+    monkeypatch.setenv("PAYPAL_CLIENT_TOKEN_DOMAINS", "https://a.example, https://b.example")
+    client, session = make_client(FakeResponse(200, {"access_token": "browser-tok", "expires_in": 900}))
+    assert client.get_client_token() == "browser-tok"
+    sent = session.calls[0]["data"]
+    assert ("response_type", "client_token") in sent
+    assert ("domains[]", "https://a.example") in sent and ("domains[]", "https://b.example") in sent
+
+
+def test_client_token_rejected():
+    client, _ = make_client(FakeResponse(401, {"error": "invalid_client"}))
+    with pytest.raises(ModuleError) as error:
+        client.get_client_token()
+    assert error.value.code == "PAYPAL_AUTH_FAILED"
+
+
+def test_mock_client_token():
+    assert MockPayPalClient().get_client_token() == "mock-client-token"

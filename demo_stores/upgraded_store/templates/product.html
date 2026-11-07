@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Brass Fountain Pen | {{STORE_NAME}}</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body data-page="product">
+  <header class="site-header">
+    <a class="brand" href="/">{{STORE_NAME}}</a>
+    <a class="cart-link" id="go-to-cart" href="/cart">Cart (<span id="cart-count">0</span>)</a>
+  </header>
+
+  <main>
+    <section class="product">
+      <div class="product-image" aria-hidden="true">
+        <svg width="220" height="220" viewBox="0 0 220 220">
+          <rect x="98" y="20" width="24" height="150" rx="10" fill="#b8892f"/>
+          <rect x="98" y="60" width="24" height="10" fill="#8a6420"/>
+          <path d="M98 170 L110 205 L122 170 Z" fill="#6b7280"/>
+        </svg>
+      </div>
+
+      <div class="card">
+        <h1>Machined Brass Fountain Pen</h1>
+        <p class="price">$35.00</p>
+        <p class="description">A compact brass fountain pen with a smooth steel nib.
+          Refillable and built to last. Ships with one converter and two cartridges.</p>
+
+        <div class="qty-row">
+          <label for="qty">Quantity</label>
+          <input id="qty" type="number" min="1" max="10" value="1">
+        </div>
+
+        <!-- PayPal is offered on the cart page (express checkout) and at checkout. -->
+        <div class="actions">
+          <button class="button" id="add-to-cart" type="button">Add to cart</button>
+          <a class="button secondary" href="/cart">View cart</a>
+        </div>
+        <p class="notice" id="cart-notice" role="status"></p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">{{STORE_NAME}} is a demo store for CheckoutPilot. No real payments.</footer>
+
+  <script src="/static/cart.js"></script>
+  <script>
+    function updateCount() {
+      const count = readCart().reduce((sum, item) => sum + item.qty, 0);
+      document.getElementById("cart-count").textContent = String(count);
+    }
+    document.getElementById("add-to-cart").addEventListener("click", () => {
+      const qty = Math.max(1, Math.min(10, parseInt(document.getElementById("qty").value, 10) || 1));
+      addToCart("brass-pen", qty);
+      updateCount();
+      document.getElementById("cart-notice").textContent = "Added to your cart.";
+    });
+    updateCount();
+  </script>
+</body>
+</html>
