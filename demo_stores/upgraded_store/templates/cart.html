@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="paypal-client-id" content="{{PAYPAL_CLIENT_ID}}">
+  <title>Your cart | {{STORE_NAME}}</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body data-page="cart">
+  <header class="site-header">
+    <a class="brand" href="/">{{STORE_NAME}}</a>
+    <a class="cart-link" href="/cart">Cart</a>
+  </header>
+
+  <main>
+    <h1>Your cart</h1>
+    <div class="card">
+      <table class="lines">
+        <thead><tr><th>Item</th><th class="num">Qty</th><th class="num">Price</th></tr></thead>
+        <tbody id="cart-lines"></tbody>
+        <tfoot><tr class="total-row"><td>Total</td><td></td><td class="num" id="cart-total">$0.00</td></tr></tfoot>
+      </table>
+      <p class="empty" id="cart-empty" hidden>Your cart is empty. <a href="/">Go to the shop</a>.</p>
+
+      <!-- Upgrade: PayPal express checkout right on the cart page (SDK v6). -->
+      <div id="paypal-button-container" class="express">
+        <paypal-button type="pay" hidden></paypal-button>
+      </div>
+      <p id="order-status" role="status"></p>
+
+      <div class="actions" style="margin-top: 12px;">
+        <a class="button" id="go-to-checkout" href="/checkout">Proceed to checkout</a>
+        <button class="button secondary" id="clear-cart" type="button">Empty cart</button>
+      </div>
+    </div>
+  </main>
+
+  <footer class="site-footer">{{STORE_NAME}} is a demo store for CheckoutPilot. Sandbox payments only.</footer>
+
+  <script src="/static/cart.js"></script>
+  <script src="/static/paypal.js"></script>
+  <script>
+    async function refresh() {
+      const total = await renderCartLines(document.getElementById("cart-lines"));
+      document.getElementById("cart-total").textContent = "$" + total.toFixed(2);
+      const empty = readCart().length === 0;
+      document.getElementById("cart-empty").hidden = !empty;
+      document.getElementById("go-to-checkout").setAttribute("aria-disabled", String(empty));
+      document.getElementById("paypal-button-container").hidden = empty;
+    }
+    document.getElementById("clear-cart").addEventListener("click", () => { clearCart(); refresh(); });
+    refresh();
+  </script>
+  <!-- PayPal JavaScript SDK v6 -->
+  <script async src="{{PAYPAL_SDK_URL}}" onload="onPayPalWebSdkLoaded()" onerror="onPayPalWebSdkFailed()"></script>
+</body>
+</html>
