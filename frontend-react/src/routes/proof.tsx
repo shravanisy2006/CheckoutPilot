@@ -104,7 +104,7 @@ function ProofPage() {
       doc.setFont("helvetica", "bold");
       doc.setFontSize(9);
       doc.text(
-        "DEMO MODE — sample data, not real results. No PayPal transaction occurred.",
+        "DEMO MODE — recorded results from the CheckoutPilot demo store (no new scan).",
         margin + 6,
         y + 7,
       );
@@ -127,13 +127,13 @@ function ProofPage() {
 
     // Issue Summary
     const issues = scan.data?.issues ?? [];
-    const issueCounts: Record<string, number> = { critical: 0, high: 0, medium: 0, low: 0 };
+    const issueCounts: Record<string, number> = { high: 0, medium: 0, low: 0 };
     issues.forEach((i) => {
       issueCounts[i.severity] = (issueCounts[i.severity] ?? 0) + 1;
     });
 
     bodyText(
-      `Issues Found: ${issues.length} total (${issueCounts.critical} critical, ${issueCounts.high} high, ${issueCounts.medium} medium, ${issueCounts.low} low)`,
+      `Issues Found: ${issues.length} total (${issueCounts.high} high, ${issueCounts.medium} medium, ${issueCounts.low} low)`,
     );
     y += 4;
 
@@ -166,16 +166,16 @@ function ProofPage() {
         doc.text(rationaleLines, margin + 8, y);
         y += rationaleLines.length * 4.2 + 6;
 
-        if (r.estimated_conversion_impact) {
+        if (typeof r.impact_score === "number") {
           doc.setFont("helvetica", "normal");
           doc.setFontSize(8.5);
-          doc.setTextColor(34, 139, 34);
-          doc.text(
-            `Est. conversion impact: ${r.estimated_conversion_impact} (estimate, not guaranteed)`,
-            margin + 8,
-            y,
+          doc.setTextColor(90, 90, 90);
+          const impactLines = doc.splitTextToSize(
+            `Impact score: ${r.impact_score}/100. Source: ${r.impact_source ?? "n/a"}. Effect not measured for this store.`,
+            contentWidth - 10,
           );
-          y += 6;
+          doc.text(impactLines, margin + 8, y);
+          y += impactLines.length * 4.2 + 2;
         }
       });
     }

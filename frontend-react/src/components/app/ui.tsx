@@ -35,7 +35,6 @@ export function PageHeader({
 }
 
 const sevClass: Record<Severity, string> = {
-  critical: "severity-badge severity-critical",
   high: "severity-badge severity-high",
   medium: "severity-badge severity-medium",
   low: "severity-badge severity-low",
@@ -329,6 +328,9 @@ export function RecommendationCard({
     description: string;
     rationale: string;
     estimated_conversion_impact?: string | null;
+    impact_score?: number | null;
+    impact_source?: string | null;
+    assumption?: string | null;
   };
   on: boolean;
   onToggle: () => void;
@@ -372,20 +374,20 @@ export function RecommendationCard({
             {rec.rationale}
           </p>
         </div>
-        {rec.estimated_conversion_impact && (
-          <div className="shrink-0">
+        {typeof rec.impact_score === "number" && (
+          <div className="shrink-0 max-w-[14rem] text-right">
             <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-              Est. conversion impact
+              Impact score
             </p>
-            <p
-              className={cn(
-                "font-display text-lg font-light",
-                rec.estimated_conversion_impact ? "text-success" : "text-muted-foreground",
-              )}
-            >
-              {rec.estimated_conversion_impact ?? "—"}
+            <p className="font-display text-lg font-light text-foreground tabular-nums">
+              {rec.impact_score}/100
             </p>
-            <p className="text-[10px] text-muted-foreground">Estimate, not guaranteed</p>
+            {rec.impact_source && (
+              <p className="text-[10px] text-muted-foreground" {...(rec.assumption ? { title: rec.assumption } : {})}>
+                Source: {rec.impact_source}
+              </p>
+            )}
+            <p className="text-[10px] text-muted-foreground">Effect not measured for this store</p>
           </div>
         )}
       </div>

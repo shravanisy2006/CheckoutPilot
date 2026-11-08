@@ -166,8 +166,8 @@ export function Shell({ children }: { children: ReactNode }) {
         {!isLanding && mode === "demo" && (
           <div className="max-w-6xl mx-auto px-4 py-2">
             <div className="demo-banner">
-              <span className="font-semibold">Demo Mode</span> — all results below are sample data
-              for preview only.
+              <span className="font-semibold">Demo Mode</span> — replays real results recorded on our
+              demo store (Inkwell &amp; Co., localhost:8101). No new scan is run.
             </div>
           </div>
         )}

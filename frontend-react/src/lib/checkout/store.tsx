@@ -1,6 +1,6 @@
 import type React from "react";
 import { createContext, useCallback, useContext, useRef, useState, type ReactNode } from "react";
-import { api, pollJob, ApiError } from "./api";
+import { ApiError, runFix, runScan, runVerify } from "./api";
 import { demoFix, demoScan, demoVerification, FIX_STAGES, SCAN_STAGES, VERIFY_STAGES } from "./demo";
 import type { FixResult, Mode, ScanResult, VerificationResult } from "./types";
 
@@ -70,13 +70,12 @@ export function CheckoutProvider({ children }: { children: ReactNode }) {
           await simulate(includeMobile ? SCAN_STAGES : SCAN_STAGES.filter((s) => !s.includes("mobile")), (p, s) => ok() && setScan((t) => ({ ...t, progress: p, stage: s })));
           data = demoScan(url);
         } else {
-          const { job_id, scan_id } = await api.createScan({ store_url: url, include_mobile: includeMobile });
-          const job = await pollJob<ScanResult>(job_id, (j) => ok() && setScan((t) => ({ ...t, progress: j.progress ?? t.progress, stage: j.stage ?? t.stage })));
-          data = job.result ?? (await api.getScan(job.result_id ?? scan_id ?? ""));
+          data = await runScan(url, includeMobile, (p, s) => ok() && setScan((t) => ({ ...t, progress: p ?? t.progress, stage: s ?? t.stage })));
         }
         if (!ok()) return;
         setScan({ phase: "success", progress: 100, data });
-        setSelected(data.recommendations.filter((r) => r.severity === "critical" || r.severity === "high").map((r) => r.id));
+        // Pre-select what the code agent can actually fix.
+        setSelected(data.recommendations.filter((r) => r.fixable_by_agent ?? r.severity === "high").map((r) => r.id));
       } catch (e) {
         if (ok()) setScan({ phase: "error", progress: 0, error: msg(e) });
       }
@@ -96,10 +95,7 @@ export function CheckoutProvider({ children }: { children: ReactNode }) {
         await simulate(FIX_STAGES, (p, s) => ok() && setFix((t) => ({ ...t, progress: p, stage: s })));
         data = demoFix(selected);
       } else {
-        const { job_id } = await api.createFix({ scan_id: scan.data.scan_id, recommendation_ids: selected });
-        const job = await pollJob<FixResult>(job_id, (j) => ok() && setFix((t) => ({ ...t, progress: j.progress ?? t.progress, stage: j.stage ?? t.stage })));
-        if (!job.result) throw new Error("Backend finished without returning fix details");
-        data = job.result;
+        data = await runFix(scan.data.scan_id, selected, (p, s) => ok() && setFix((t) => ({ ...t, progress: p ?? t.progress, stage: s ?? t.stage })));
       }
       if (ok()) setFix({ phase: "success", progress: 100, data });
     } catch (e) {
@@ -118,10 +114,7 @@ export function CheckoutProvider({ children }: { children: ReactNode }) {
         await simulate(VERIFY_STAGES, (p, s) => ok() && setVerify((t) => ({ ...t, progress: p, stage: s })));
         data = demoVerification();
       } else {
-        const { job_id } = await api.createVerification({ scan_id: scan.data.scan_id, fix_id: fix.data.fix_id });
-        const job = await pollJob<VerificationResult>(job_id, (j) => ok() && setVerify((t) => ({ ...t, progress: j.progress ?? t.progress, stage: j.stage ?? t.stage })));
-        if (!job.result) throw new Error("Backend finished without returning verification details");
-        data = job.result;
+        data = await runVerify(fix.data.fix_id, (p, s) => ok() && setVerify((t) => ({ ...t, progress: p ?? t.progress, stage: s ?? t.stage })));
       }
       if (ok()) setVerify({ phase: "success", progress: 100, data });
     } catch (e) {

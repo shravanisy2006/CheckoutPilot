@@ -137,7 +137,7 @@ function LandingPage() {
                     <div className="h-2 w-2 rounded-full bg-success" />
                   </div>
                   <div className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/5 px-2.5 py-0.5 text-[10px] font-semibold text-primary uppercase tracking-tighter">
-                    <span className="h-1.5 w-1.5 rounded-full bg-primary" /> Sample data
+                    <span className="h-1.5 w-1.5 rounded-full bg-primary" /> Real demo result
                   </div>
                 </div>
 
@@ -153,7 +153,7 @@ function LandingPage() {
                     <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                       Checkout health
                     </p>
-                    <p className="font-display text-lg font-light tabular-nums">58 / 100</p>
+                    <p className="font-display text-lg font-light tabular-nums">21 / 100</p>
                   </div>
                   <div className="relative w-12 h-12">
                     <svg className="w-full h-full transform -rotate-90">
@@ -173,14 +173,14 @@ function LandingPage() {
                         stroke="currentColor"
                         strokeWidth="5"
                         fill="none"
-                        className="text-warning transition-all duration-700"
+                        className="text-destructive transition-all duration-700"
                         strokeDasharray="125"
-                        strokeDashoffset="52"
+                        strokeDashoffset="99"
                       />
                     </svg>
                     <div className="absolute inset-0 flex flex-col items-center justify-center">
-                      <span className="font-display text-[10px] font-light tabular-nums text-warning">
-                        58
+                      <span className="font-display text-[10px] font-light tabular-nums text-destructive">
+                        21
                       </span>
                     </div>
                   </div>
@@ -193,12 +193,12 @@ function LandingPage() {
                       <ScanSearch className="h-3.5 w-3.5 text-primary" />
                     </div>
                     <div className="flex-1">
-                      <p className="text-sm font-medium">Deprecated checkout.js SDK</p>
+                      <p className="text-sm font-medium">PayPal SDK v5 is outdated</p>
                       <p className="text-xs text-muted-foreground">
-                        Migrate to PayPal JavaScript SDK
+                        Upgrade to JavaScript SDK v6
                       </p>
                     </div>
-                    <span className="severity-badge severity-critical">Critical</span>
+                    <span className="severity-badge severity-high">High</span>
                   </div>
                   <div className="flex items-center gap-3 p-3 rounded-lg bg-background border border-border/50">
                     <div className="h-7 w-7 shrink-0 rounded-lg bg-secondary flex items-center justify-center">
@@ -207,22 +207,22 @@ function LandingPage() {
                     <div className="flex-1">
                       <p className="text-sm font-medium">PayPal button below fold on mobile</p>
                       <p className="text-xs text-muted-foreground">
-                        Move express checkout above form
+                        Move PayPal above the form
                       </p>
                     </div>
-                    <span className="severity-badge severity-high">High</span>
+                    <span className="severity-badge severity-medium">Medium</span>
                   </div>
                   <div className="flex items-center gap-3 p-3 rounded-lg bg-background border border-border/50">
                     <div className="h-7 w-7 shrink-0 rounded-lg bg-secondary flex items-center justify-center">
                       <ShieldCheck className="h-3.5 w-3.5 text-primary" />
                     </div>
                     <div className="flex-1">
-                      <p className="text-sm font-medium">Sandbox verification passed</p>
+                      <p className="text-sm font-medium">Sandbox payment verified</p>
                       <p className="text-xs text-muted-foreground">
-                        PayPal Sandbox order confirmed
+                        Real Sandbox order, status COMPLETED
                       </p>
                     </div>
-                    <span className="severity-badge severity-medium">Simulated</span>
+                    <span className="severity-badge severity-low">Real</span>
                   </div>
                 </div>
               </div>
@@ -239,7 +239,7 @@ function LandingPage() {
               How CheckoutPilot works
             </h2>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-              From audit to proof in three simple steps. No backend setup required in Demo Mode.
+              From audit to proof in three steps. Demo Mode replays real results, no setup needed.
             </p>
           </div>
           <div className="grid md:grid-cols-3 gap-8">
@@ -250,7 +250,7 @@ function LandingPage() {
                 icon: ScanSearch,
                 pill: "severity-medium",
                 description:
-                  "Scan any storefront's PayPal checkout on desktop and mobile. We detect deprecated SDKs, button placement issues, missing Pay Later messaging, and authorization intent problems.",
+                  "Scan a store's PayPal checkout on desktop and mobile, the way a shopper sees it. We detect an outdated PayPal SDK, PayPal missing from the cart or product page, and PayPal buttons hidden below the fold on phones.",
               },
               {
                 number: "02",
@@ -258,7 +258,7 @@ function LandingPage() {
                 icon: Sparkles,
                 pill: "severity-high",
                 description:
-                  "Review ranked recommendations with before/after code diffs. Select the fixes you want and generate production-ready code changes for your repository.",
+                  "Review recommendations ranked by impact, each tied to a cited PayPal source. Pick the fixes and get the code change (SDK v5 → v6, PayPal on the cart) as a reviewable diff.",
               },
               {
                 number: "03",
@@ -266,7 +266,7 @@ function LandingPage() {
                 icon: ShieldCheck,
                 pill: "severity-medium",
                 description:
-                  "Verify fixes in PayPal Sandbox with before/after evidence. Download a JSON report documenting every finding and result.",
+                  "Prove the checkout still works with a real PayPal Sandbox payment before and after the fix. Download a PDF report with every finding and result.",
               },
             ].map((step, idx) => (
               <div

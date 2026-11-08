@@ -38,7 +38,7 @@ export const Route = createFileRoute("/audit")({
   component: AuditPage,
 });
 
-const SEVS: Severity[] = ["critical", "high", "medium", "low"];
+const SEVS: Severity[] = ["high", "medium", "low"];
 
 function AuditPage() {
   const { scan, startScan, mode } = useCheckout();
