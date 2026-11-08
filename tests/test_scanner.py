@@ -156,12 +156,13 @@ def localhost_scan_enabled(monkeypatch):
 
 @pytest.fixture
 def fast_config():
-    """Fast timeout configuration to keep test runs rapid and deterministic."""
+    """Short timeouts to keep test runs quick, with enough headroom for slower
+    laptops (a 500 ms action limit made navigation fail randomly on Windows)."""
     return BrowserConfig(
         headless=True,
-        timeout_ms=10000,
-        navigation_timeout_ms=3000,
-        action_timeout_ms=500,
+        timeout_ms=15000,
+        navigation_timeout_ms=10000,
+        action_timeout_ms=2000,
         screenshots_dir="screenshots",
     )
 
