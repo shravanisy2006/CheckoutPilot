@@ -308,3 +308,47 @@ def test_list_models_filters_to_generate_content(monkeypatch, capsys):
     assert main(["--list-models"]) == 0
     out = capsys.readouterr().out
     assert "model-a" in out and "model-b" in out and "embed-only" not in out
+
+
+# ---- Roshan's scanner format (detected_sdk_version + bounding_box) -------------------
+from ai_engine.rules import get_sdk_version, is_visible_without_scroll, run_rule_checks as _rules
+
+
+def _scanner_page(step, viewport, y=None, category="button"):
+    elements = [] if y is None else [{"category": category, "visible": True,
+                                      "bounding_box": {"x": 10, "y": y, "width": 300, "height": 45}}]
+    return {"step": step, "viewport": viewport, "screenshot_path": "", "paypal_elements": elements}
+
+
+def test_scanner_format_legacy_store_finds_all_four():
+    scan = {"detected_sdk_version": "v5", "pages": [
+        _scanner_page("product", "desktop"), _scanner_page("cart", "desktop"),
+        _scanner_page("checkout", "desktop", 331), _scanner_page("product", "mobile"),
+        _scanner_page("cart", "mobile"), _scanner_page("checkout", "mobile", 1339.5)]}
+    assert {i["issue_id"] for i in _rules(scan)} == {
+        "sdk_outdated", "no_paypal_on_cart", "no_paypal_on_product", "button_below_fold_mobile"}
+
+
+def test_scanner_format_upgraded_store_has_no_false_alarm():
+    scan = {"detected_sdk_version": "v6", "pages": [
+        _scanner_page("product", "desktop"), _scanner_page("cart", "desktop", 380),
+        _scanner_page("checkout", "desktop", 330), _scanner_page("product", "mobile"),
+        _scanner_page("cart", "mobile", 400), _scanner_page("checkout", "mobile", 340)]}
+    assert {i["issue_id"] for i in _rules(scan)} == {"no_paypal_on_product"}
+
+
+def test_unknown_version_and_pay_later_text_are_not_buttons():
+    assert get_sdk_version({"detected_sdk_version": "unknown"}) == "none"
+    assert get_sdk_version({"paypal_sdk_version": "v6", "detected_sdk_version": "v5"}) == "v6"
+    cart_with_only_message = _scanner_page("cart", "desktop", 200, category="messaging")
+    issues = _rules({"detected_sdk_version": "v6", "pages": [cart_with_only_message]})
+    assert "no_paypal_on_cart" in {i["issue_id"] for i in issues}
+
+
+def test_visible_without_scroll_from_bounding_box():
+    page = {"viewport": "mobile"}
+    assert is_visible_without_scroll({"bounding_box": {"y": 300, "height": 45}}, page)
+    assert not is_visible_without_scroll({"bounding_box": {"y": 1339, "height": 45}}, page)
+    assert not is_visible_without_scroll({"visible": False, "bounding_box": {"y": 10, "height": 45}}, page)
+    assert is_visible_without_scroll({"bounding_box": {"y": 700, "height": 45}}, {"viewport_height": 844})
+    assert is_visible_without_scroll({"visible_without_scroll": True}, page)

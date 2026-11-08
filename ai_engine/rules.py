@@ -49,9 +49,47 @@ def get_pages(scan_data: dict, step: str, viewport: str | None = None) -> list[d
     ]
 
 
+# Screen heights used when a scan does not say how tall the screen was
+# (matches the scanner's default BrowserConfig viewports).
+DEFAULT_VIEWPORT_HEIGHTS = {"desktop": 800, "mobile": 667}
+
+# Elements that are PayPal *text* (Pay Later messages), not a way to pay.
+NON_BUTTON_CATEGORIES = {"messaging"}
+
+
+def get_sdk_version(scan_data: dict) -> str:
+    """PayPal SDK version from either scan format ("paypal_sdk_version" or "detected_sdk_version")."""
+    version = scan_data.get("paypal_sdk_version") or scan_data.get("detected_sdk_version") or "none"
+    return "none" if version == "unknown" else version
+
+
+def _payment_elements(page: dict) -> list[dict]:
+    """PayPal buttons/containers on a page, ignoring Pay Later text messages."""
+    return [el for el in page.get("paypal_elements") or []
+            if el.get("category", el.get("type")) not in NON_BUTTON_CATEGORIES]
+
+
+def is_visible_without_scroll(element: dict, page: dict) -> bool:
+    """True if the element shows on the first screen, without scrolling.
+
+    Uses the scanner's own answer when it gives one ("visible_without_scroll");
+    otherwise works it out from the element's bounding box and the screen height.
+    """
+    if "visible_without_scroll" in element:
+        return bool(element["visible_without_scroll"])
+    if element.get("visible") is False:
+        return False
+    box = element.get("bounding_box") or {}
+    if "y" not in box:
+        return False
+    height = page.get("viewport_height") or DEFAULT_VIEWPORT_HEIGHTS.get(page.get("viewport", ""), 800)
+    bottom = box["y"] + box.get("height", 0)
+    return bottom > 0 and bottom <= height
+
+
 def _has_paypal(page: dict) -> bool:
-    """True if the scanner found at least one PayPal element on the page."""
-    return bool(page.get("paypal_elements"))
+    """True if the scanner found at least one PayPal button/container on the page."""
+    return bool(_payment_elements(page))
 
 
 def _first_screenshot(pages: list[dict]) -> str:
@@ -64,7 +102,7 @@ def _first_screenshot(pages: list[dict]) -> str:
 
 def check_sdk_version(scan_data: dict) -> list[dict]:
     """Flag stores that load an outdated PayPal JavaScript SDK (v4 or v5)."""
-    version = scan_data.get("paypal_sdk_version") or "none"
+    version = get_sdk_version(scan_data)
     if version not in ("v4", "v5"):
         return []
     return [
@@ -117,8 +155,8 @@ def check_paypal_on_product(scan_data: dict) -> list[dict]:
 def check_mobile_button_position(scan_data: dict) -> list[dict]:
     """Flag checkouts where every PayPal element is below the fold on mobile."""
     for page in get_pages(scan_data, "checkout", "mobile"):
-        elements = page.get("paypal_elements") or []
-        if elements and not any(el.get("visible_without_scroll") for el in elements):
+        elements = _payment_elements(page)
+        if elements and not any(is_visible_without_scroll(el, page) for el in elements):
             return [
                 make_issue(
                     "button_below_fold_mobile",

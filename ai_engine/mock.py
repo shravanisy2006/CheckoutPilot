@@ -8,6 +8,7 @@ issues while building their own module.
 import copy
 import json
 from pathlib import Path
+from ai_engine.rules import get_sdk_version
 
 FIXTURES_DIR = Path(__file__).resolve().parent.parent / "tests" / "fixtures"
 
@@ -24,7 +25,7 @@ def analyze_checkout_mock(scan_data: dict | None = None) -> list[dict]:
     If scan_data says the store already uses SDK v6, return an empty list
     instead, so mock runs of the upgraded store look clean.
     """
-    if scan_data and scan_data.get("paypal_sdk_version") == "v6":
+    if scan_data and get_sdk_version(scan_data) == "v6":
         return []
     return copy.deepcopy(load_fixture("checkout_issues_legacy.json"))
 
