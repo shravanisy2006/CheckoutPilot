@@ -1,0 +1,470 @@
+/*
+ * Tailwind v4 entry: config lives here, with no tailwind.config.js or PostCSS plugin.
+ * - Keep every @import in this top block, above @theme and the rest of the file.
+ * - Design system per design.md: ElevenLabs-inspired editorial SaaS.
+ *   Off-white canvas (#f5f5f5), warm near-black ink (#292524), EB Garamond display,
+ *   Inter body, atmospheric pastel gradient orbs as decoration only.
+ */
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --radius-4xl: calc(var(--radius) + 16px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-gradient-mint: var(--gradient-mint);
+  --color-gradient-peach: var(--gradient-peach);
+  --color-gradient-lavender: var(--gradient-lavender);
+  --color-gradient-sky: var(--gradient-sky);
+  --color-gradient-rose: var(--gradient-rose);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+:root {
+  --radius: 0.5rem;
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --radius-4xl: calc(var(--radius) + 16px);
+  --background: #f5f5f5;
+  --foreground: #0c0a09;
+  --card: #ffffff;
+  --card-foreground: #0c0a09;
+  --popover: #ffffff;
+  --popover-foreground: #0c0a09;
+  --primary: #292524;
+  --primary-foreground: #ffffff;
+  --primary-active: #0c0a09;
+  --secondary: #f0efed;
+  --secondary-foreground: #0c0a09;
+  --muted: #f0efed;
+  --muted-foreground: #777169;
+  --accent: #a7e5d3;
+  --accent-foreground: #0c0a09;
+  --warning: #f4c5a8;
+  --warning-foreground: #5c3a24;
+  --destructive: #dc2626;
+  --destructive-foreground: #ffffff;
+  --success: #16a34a;
+  --success-foreground: #ffffff;
+  --border: #e7e5e4;
+  --border-strong: #d6d3d1;
+  --input: #e7e5e4;
+  --ring: #292524;
+  --gradient-mint: #a7e5d3;
+  --gradient-peach: #f4c5a8;
+  --gradient-lavender: #c8b8e0;
+  --gradient-sky: #a8c8e8;
+  --gradient-rose: #e8b8c4;
+  --sidebar: #f5f5f5;
+  --sidebar-foreground: #0c0a09;
+  --sidebar-primary: #292524;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #f0efed;
+  --sidebar-accent-foreground: #0c0a09;
+  --sidebar-border: #e7e5e4;
+  --sidebar-ring: #292524;
+  --shadow-panel: 0 4px 16px rgba(0, 0, 0, 0.04);
+}
+
+@theme inline {
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "EB Garamond", Georgia, serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+@utility panel {
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--color-border);
+  background: var(--color-card);
+  box-shadow: var(--shadow-panel);
+}
+
+@utility eyebrow {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.96px;
+  text-transform: uppercase;
+  color: var(--color-primary);
+}
+
+@utility btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 9999px;
+  padding: 0.625rem 1.25rem;
+  height: 2.5rem;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  font-family: var(--font-sans);
+  background: var(--color-primary);
+  color: var(--color-primary-foreground);
+  transition: all 0.2s;
+  &:hover {
+    background: var(--color-primary-active);
+  }
+  &:disabled {
+    opacity: 0.5;
+    pointer-events: none;
+  }
+}
+
+@utility btn-outline {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 9999px;
+  padding: 0.5625rem 1.1875rem;
+  height: 2.5rem;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  font-family: var(--font-sans);
+  background: transparent;
+  color: var(--color-foreground);
+  border: 1px solid var(--color-border-strong);
+  transition: all 0.2s;
+  &:hover {
+    background: var(--color-muted);
+  }
+  &:disabled {
+    opacity: 0.5;
+    pointer-events: none;
+  }
+}
+
+@utility btn-tertiary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 9999px;
+  padding: 0 1rem;
+  height: 2.5rem;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  font-family: var(--font-sans);
+  background: transparent;
+  color: var(--color-foreground);
+  transition: all 0.2s;
+  &:hover {
+    color: var(--color-primary);
+  }
+}
+
+@utility input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  height: 2.75rem;
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-input);
+  background: var(--color-card);
+  transition:
+    box-shadow 0.2s,
+    border-color 0.2s;
+  &:focus-within {
+    border-color: var(--color-ring);
+    box-shadow: 0 0 0 2px color-mix(in oklab, var(--color-ring) 30%, transparent);
+  }
+}
+
+@utility nav-item {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  border-radius: var(--radius-md);
+  padding: 0.55rem 0.75rem;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  font-family: var(--font-sans);
+  color: var(--color-muted-foreground);
+  transition: all 0.15s;
+  &:hover {
+    background: var(--color-muted);
+    color: var(--color-foreground);
+  }
+}
+
+@utility nav-item-active {
+  background: var(--color-card);
+  color: var(--color-foreground);
+  box-shadow: var(--shadow-panel);
+}
+
+@utility badge-pill {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 9999px;
+  padding: 0.25rem 0.625rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  font-family: var(--font-sans);
+  text-transform: uppercase;
+  letter-spacing: 0.96px;
+  background: var(--color-secondary);
+  color: var(--color-foreground);
+}
+
+@utility severity-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 9999px;
+  padding: 0.25rem 0.625rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  font-family: var(--font-sans);
+  text-transform: uppercase;
+  letter-spacing: 0.96px;
+  border: 1px solid transparent;
+}
+
+@utility severity-critical {
+  background: color-mix(in oklab, var(--color-destructive) 8%, transparent);
+  color: var(--color-destructive);
+  border-color: color-mix(in oklab, var(--color-destructive) 20%, transparent);
+}
+
+@utility severity-high {
+  background: color-mix(in oklab, var(--color-warning) 10%, transparent);
+  color: var(--color-warning-foreground);
+  border-color: color-mix(in oklab, var(--color-warning) 20%, transparent);
+}
+
+@utility severity-medium {
+  background: color-mix(in oklab, var(--color-accent) 10%, transparent);
+  color: var(--color-accent-foreground);
+  border-color: color-mix(in oklab, var(--color-accent) 20%, transparent);
+}
+
+@utility severity-low {
+  background: var(--color-muted);
+  color: var(--color-muted-foreground);
+}
+
+@utility tag {
+  border-radius: 6px;
+  padding: 1px 6px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+@utility tag-sdk {
+  background: var(--color-secondary);
+  color: var(--color-secondary-foreground);
+}
+
+@utility tag-checkout {
+  background: color-mix(in oklab, var(--color-success) 10%, transparent);
+  color: var(--color-success);
+  border: 1px solid color-mix(in oklab, var(--color-success) 20%, transparent);
+}
+
+@utility diff-del {
+  background: color-mix(in oklab, var(--color-destructive) 5%, transparent);
+  color: var(--color-foreground);
+}
+
+@utility diff-add {
+  background: color-mix(in oklab, var(--color-success) 5%, transparent);
+  color: var(--color-foreground);
+}
+
+@utility shot-frame {
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border);
+  background: var(--color-background);
+}
+
+@utility demo-banner {
+  border-bottom: 1px solid color-mix(in oklab, var(--color-border) 50%, transparent);
+  background: color-mix(in oklab, var(--color-primary) 3%, transparent);
+  padding: 0.625rem 1rem;
+  text-align: center;
+  font-size: 0.78rem;
+  color: var(--color-foreground);
+}
+
+@utility toggle {
+  position: relative;
+  height: 1.25rem;
+  width: 2.25rem;
+  border-radius: 9999px;
+  background: var(--color-border);
+  transition: background 0.2s;
+}
+
+@utility toggle-on {
+  background: var(--color-primary);
+  & > span {
+    transform: translateX(1rem);
+  }
+}
+
+@utility toggle-knob {
+  position: absolute;
+  left: 2px;
+  top: 2px;
+  height: 1rem;
+  width: 1rem;
+  border-radius: 9999px;
+  background: var(--color-card);
+  transition: transform 0.2s;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+/* ---------------------------------------------------------------
+   Landing page — editorial, atmospheric
+--------------------------------------------------------------- */
+@utility landing-nav {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  border-bottom: 1px solid var(--color-border);
+  background: color-mix(in oklab, var(--color-background) 90%, transparent);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+@utility landing-hero-glow {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  filter: blur(96px);
+  z-index: -1;
+}
+
+@utility landing-hero-glow-1 {
+  background: radial-gradient(
+    circle at 50% 50%,
+    color-mix(in oklab, var(--color-gradient-mint) 40%, transparent),
+    transparent 70%
+  );
+  top: -8%;
+  left: 8%;
+  width: 46rem;
+  height: 28rem;
+}
+
+@utility landing-hero-glow-2 {
+  background: radial-gradient(
+    circle at 50% 50%,
+    color-mix(in oklab, var(--color-gradient-peach) 35%, transparent),
+    transparent 70%
+  );
+  bottom: -12%;
+  right: 8%;
+  width: 38rem;
+  height: 22rem;
+}
+
+@utility landing-hero-glow-3 {
+  background: radial-gradient(
+    circle at 50% 50%,
+    color-mix(in oklab, var(--color-gradient-lavender) 30%, transparent),
+    transparent 70%
+  );
+  top: 20%;
+  right: 12%;
+  width: 34rem;
+  height: 20rem;
+}
+
+@utility landing-card {
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--color-border);
+  background: var(--color-card);
+  box-shadow: var(--shadow-panel);
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px -6px rgba(0, 0, 0, 0.08);
+  }
+}
+
+@utility landing-feature-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 2.75rem;
+  width: 2.75rem;
+  border-radius: var(--radius-lg);
+  color: var(--color-primary);
+}
+
+@utility section-heading {
+  font-family: var(--font-display);
+  font-weight: 300;
+  letter-spacing: -0.025em;
+}
+
+@utility page-container {
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: 2rem 1rem 4rem;
+}
