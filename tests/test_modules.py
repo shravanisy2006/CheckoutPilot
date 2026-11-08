@@ -7,7 +7,7 @@ from ai_engine import analyze_checkout
 from code_agent import create_upgrade_plan, generate_upgrade
 from impact_ranker import rank_gaps
 from paypal_integration import PayPalClient
-from sandbox_verifier import verify_checkout
+from sandbox_verifier import verify_checkout_mock
 from scanner import scan_store
 
 
@@ -37,5 +37,7 @@ def test_paypal_client_creates():
 
 
 def test_verifier_returns_result():
-    result = verify_checkout("https://example.com")
-    assert result["purchase_succeeded"] is False
+    # The real verifier needs a browser and PayPal; see tests/test_sandbox_verifier.py.
+    result = verify_checkout_mock("http://localhost:8101", label="before")
+    for key in ("store_url", "label", "purchase_succeeded", "order_id", "payment_saved", "screenshots"):
+        assert key in result
