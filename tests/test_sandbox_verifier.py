@@ -179,3 +179,21 @@ def test_get_verifier_switch(monkeypatch):
     assert get_verifier() is verify_checkout_mock
     monkeypatch.setenv("MOCK_VERIFIER", "false")
     assert get_verifier() is verifier.verify_checkout
+
+
+def test_window_closing_mid_check_counts_as_done():
+    """Regression: PayPal closes its window right after Pay. That must not crash the verifier."""
+    from playwright.sync_api import sync_playwright
+    opener = "<html><body><script>window.open('http://fake.test/close', 'pp')</script></body></html>"
+    closer = "<html><body><p>Processing...</p><script>setTimeout(() => window.close(), 400)</script></body></html>"
+    with sync_playwright() as p:
+        browser = p.chromium.launch()
+        context = browser.new_context()
+        context.route("http://fake.test/**", lambda route: route.fulfill(
+            body=closer if route.request.url.endswith("/close") else opener, content_type="text/html"))
+        page = context.new_page()
+        with context.expect_page() as popup_info:
+            page.goto("http://fake.test/start")
+        popup = popup_info.value
+        assert verifier.complete_paypal_popup(popup, "a", "b", timeout=10, require_sandbox=False) == ""
+        browser.close()

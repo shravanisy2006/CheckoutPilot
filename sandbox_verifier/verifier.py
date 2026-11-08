@@ -212,64 +212,78 @@ def complete_paypal_popup(popup, email: str, password: str, timeout: float = POP
     combined login, cookie banner, review page) until the window closes.
     """
     deadline = time.monotonic() + timeout
-    typed_email = typed_password = False
-    clicked_pay = 0.0
+    state = {"typed_email": False, "typed_password": False, "clicked_pay": 0.0}
     while time.monotonic() < deadline:
         if popup.is_closed():
             return ""
         try:
-            popup.wait_for_load_state("domcontentloaded", timeout=5000)
+            outcome = _popup_step(popup, email, password, state, require_sandbox)
         except Exception:
+            # PayPal closes its window right after "Pay": that ends any check
+            # that was running. Closed = done; otherwise just try again.
             if popup.is_closed():
                 return ""
-        url = popup.url
-        if url.startswith("about:") or not url:
-            popup.wait_for_timeout(500)
-            continue
-        if require_sandbox and not is_sandbox_url(url):
-            return FAIL_NOT_SANDBOX  # never type the buyer login anywhere else
-
-        error = _page_error(popup)
-        if error:
-            return error
-
-        cookie = _first_visible(popup, COOKIE_BUTTONS)
-        if cookie:
-            cookie.click()
-            continue
-
-        email_box = _first_visible(popup, EMAIL_INPUTS)
-        password_box = _first_visible(popup, PASSWORD_INPUTS)
-        if email_box and not typed_email and email_box.is_editable():
-            email_box.fill(email)
-            typed_email = True
-            next_button = _first_visible(popup, NEXT_BUTTONS)
-            if next_button and not password_box:
-                next_button.click()
-            continue
-        if password_box and not typed_password:
-            password_box.fill(password)
-            typed_password = True
-            login = _first_visible(popup, LOGIN_BUTTONS)
-            (login.click() if login else password_box.press("Enter"))
-            continue
-
-        pay = _first_visible(popup, PAY_BUTTONS)
-        if pay is None:
-            candidate = popup.get_by_role("button", name=PAY_BUTTON_TEXT).first
-            try:
-                pay = candidate if candidate.count() and candidate.is_visible() else None
-            except Exception:
-                pay = None
-        if pay is not None and time.monotonic() - clicked_pay > 8:  # don't double-click
-            try:
-                pay.click(timeout=5000)
-                clicked_pay = time.monotonic()
-            except Exception:
-                pass
-            continue
-        popup.wait_for_timeout(700)
+            outcome = None
+        if outcome is not None:
+            return outcome
+        _pause(popup, 0.7)
     return FAIL_POPUP_TIMEOUT
+
+
+def _pause(page, seconds: float) -> None:
+    """Wait without crashing if the page closes meanwhile."""
+    try:
+        page.wait_for_timeout(seconds * 1000)
+    except Exception:
+        pass
+
+
+def _popup_step(popup, email: str, password: str, state: dict, require_sandbox: bool):
+    """Do the next thing the PayPal window needs. Returns a failure code, or None to keep going."""
+    try:
+        popup.wait_for_load_state("domcontentloaded", timeout=5000)
+    except Exception:
+        if popup.is_closed():
+            return ""
+    url = popup.url
+    if url.startswith("about:") or not url:
+        return None
+    if require_sandbox and not is_sandbox_url(url):
+        return FAIL_NOT_SANDBOX  # never type the buyer login anywhere else
+
+    error = _page_error(popup)
+    if error:
+        return error
+
+    cookie = _first_visible(popup, COOKIE_BUTTONS)
+    if cookie:
+        cookie.click(timeout=5000)
+        return None
+
+    email_box = _first_visible(popup, EMAIL_INPUTS)
+    password_box = _first_visible(popup, PASSWORD_INPUTS)
+    if email_box and not state["typed_email"] and email_box.is_editable():
+        email_box.fill(email)
+        state["typed_email"] = True
+        next_button = _first_visible(popup, NEXT_BUTTONS)
+        if next_button and not password_box:
+            next_button.click(timeout=5000)
+        return None
+    if password_box and not state["typed_password"]:
+        password_box.fill(password)
+        state["typed_password"] = True
+        login = _first_visible(popup, LOGIN_BUTTONS)
+        (login.click(timeout=5000) if login else password_box.press("Enter"))
+        return None
+
+    pay = _first_visible(popup, PAY_BUTTONS)
+    if pay is None:
+        candidate = popup.get_by_role("button", name=PAY_BUTTON_TEXT).first
+        pay = candidate if candidate.count() and candidate.is_visible() else None
+    if pay is not None and time.monotonic() - state["clicked_pay"] > 8:  # don't double-click
+        state["clicked_pay"] = time.monotonic()
+        pay.click(timeout=5000)
+    return None
 
 
 # ------------------------------------------------------- main function ---
