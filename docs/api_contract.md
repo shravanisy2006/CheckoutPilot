@@ -7,6 +7,51 @@ use it for the dashboard's Demo Mode, and make the backend return the same shape
 Base URL: `http://localhost:8000` (from `BACKEND_URL`). All routes start with `/api`.
 Severity is always `"high"`, `"medium"` or `"low"` (there is no "critical").
 
+## Status and to-do list (updated 8 Nov 2026)
+
+What the backend on `main` sends **today** (PR #6) compared with this contract.
+The dashboard already accepts **both** the old names and the contract names, so nothing breaks
+while the backend catches up. Tick items off here when they are merged.
+
+### `POST /api/scan`
+
+| Field | Contract | Backend today | Dashboard | Owner |
+|---|---|---|---|---|
+| list of issues | `issues` | `gaps` | reads both | Backend |
+| issue ID | `issue_id` | `gap_id` | reads both | Backend |
+| `title`, `severity`, `category`, `confidence`, `evidence`, `fixable_by_agent`, `impact` | yes | ✅ sent | ✅ shown | — |
+| `health_score` | yes | ✅ sent | ✅ shown | — |
+| `source` (`rule` / `vision` / `rule+vision`) | yes | ❌ missing | shows "Found by: …" when present | Backend |
+| `paypal_sdk_version` | yes | ❌ missing | ready | Backend |
+| `health_label`, `issue_counts`, `scanned_at` | yes | ❌ missing | not required (dashboard computes them) | Backend (nice to have) |
+| `pages` with `screenshot_url` | yes | ❌ missing | shows screenshots when present | Backend |
+| `screenshot_url` per issue | yes | ❌ sends `screenshot_path` (a laptop file path the browser cannot open) | ignores file paths | Backend |
+| `GET /files/...` serving `outputs/` and the scanner's screenshots | yes | ❌ missing | ready | Backend |
+| Failure response | 4xx + `{detail: {code, message}}` | 200 + `status: "failed"` + `message` | handles both | — |
+
+### Other endpoints
+
+| Endpoint | Status | Depends on | Owner |
+|---|---|---|---|
+| `POST /api/fix` | ❌ not built (dashboard shows "not available yet") | Code agent | Backend + code agent |
+| `POST /api/verify` | ❌ not built (dashboard shows "not available yet") | `sandbox_verifier` (ready) + `demo_stores.serve.start_store` (ready) | Backend |
+| `GET /api/reports/{scan_id}` | ✅ works (in memory, lost on restart) | — | — |
+
+### Setup
+
+| Item | Status | Owner |
+|---|---|---|
+| `ALLOW_LOCALHOST_SCANS=true` in `.env` (the demo stores run on localhost; without it every scan fails with "Invalid store URL") | ❌ not in `.env.example` yet | Backend |
+| `CORS_ORIGINS` includes the dashboard address (e.g. `http://localhost:5173` for `npm run dev`, `http://localhost:4173` for `npm run preview`) | ❌ default only allows `http://localhost:8501` | Backend |
+| Dashboard `VITE_API_BASE_URL=http://localhost:8000` in `frontend-react/.env` | needed for Live mode | Dashboard |
+
+### Order of work
+
+1. **Backend:** `ALLOW_LOCALHOST_SCANS` + `CORS_ORIGINS` in `.env.example`; rename `gaps`/`gap_id` → `issues`/`issue_id`; add `source`, `paypal_sdk_version`, `pages`, `screenshot_url` and the `/files` route.
+2. **Backend:** `POST /api/verify` using `get_verifier()` and `compare_runs()`; return the shape in `sample_result.json → verify`.
+3. **Code agent + backend:** `POST /api/fix`, returning the shape in `sample_result.json → fix`.
+4. **Dashboard:** nothing to change for 1–3; check Live mode after each backend merge.
+
 | Step | Endpoint | Sample in `sample_result.json` |
 |---|---|---|
 | Health check | `GET /api/health` | — |
