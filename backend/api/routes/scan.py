@@ -10,5 +10,5 @@ router = APIRouter(prefix="/scan", tags=["Scan"])
 
 @router.post("", response_model=ScanResponse)
 def start_scan(request: ScanRequest) -> ScanResponse:
-    """Start a scan. Currently returns placeholder results."""
+    """Start a checkout audit scan for the given store URL."""
     return run_scan(request)

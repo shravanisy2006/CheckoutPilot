@@ -19,13 +19,14 @@ def test_health_check_is_ok():
     assert response.json()["status"] == "ok"
 
 
-def test_scan_returns_placeholder():
+def test_scan_returns_valid_response():
     response = client.post("/api/scan", json={"store_url": "https://example.com"})
     assert response.status_code == 200
     body = response.json()
     assert body["store_url"] == "https://example.com"
-    assert body["status"] == "placeholder"
+    assert body["status"] in ("completed", "partial", "failed")
     assert isinstance(body["gaps"], list)
+    assert "message" in body
 
 
 def test_scan_requires_store_url():
