@@ -8,9 +8,10 @@ To add a new group of endpoints:
 
 from fastapi import APIRouter
 
-from backend.api.routes import health, reports, scan
+from backend.api.routes import health, reports, scan, verify
 
 api_router = APIRouter(prefix="/api")
 api_router.include_router(health.router)
 api_router.include_router(scan.router)
 api_router.include_router(reports.router)
+api_router.include_router(verify.router)
