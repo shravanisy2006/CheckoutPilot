@@ -26,7 +26,7 @@ while the backend catches up. Tick items off here when they are merged.
 | `health_label`, `issue_counts`, `scanned_at` | yes | ❌ missing | not required (dashboard computes them) | Backend (nice to have) |
 | `pages` with `screenshot_url` | yes | ❌ missing | shows screenshots when present | Backend |
 | `screenshot_url` per issue | yes | ❌ sends `screenshot_path` (a laptop file path the browser cannot open) | ignores file paths | Backend |
-| `GET /files/...` serving `outputs/` and the scanner's screenshots | yes | ❌ missing | ready | Backend |
+| `GET /files/...` serving `outputs/` | yes | ✅ added with `/api/verify` (scanner screenshots still save to `screenshots/`, not `outputs/`) | ready | Backend: save scan screenshots under `outputs/scans/<scan_id>/` |
 | Failure response | 4xx + `{detail: {code, message}}` | 200 + `status: "failed"` + `message` | handles both | — |
 
 ### Other endpoints
@@ -34,7 +34,7 @@ while the backend catches up. Tick items off here when they are merged.
 | Endpoint | Status | Depends on | Owner |
 |---|---|---|---|
 | `POST /api/fix` | ❌ not built (dashboard shows "not available yet") | Code agent | Backend + code agent |
-| `POST /api/verify` | ❌ not built (dashboard shows "not available yet") | `sandbox_verifier` (ready) + `demo_stores.serve.start_store` (ready) | Backend |
+| `POST /api/verify` | ✅ built. Body: `{"fix_id": ...}` or `{"before_store": "legacy", "after_store": "upgraded"}`; `GET /api/verify/{id}` returns a saved result. Errors: 400 / 404 `FIX_NOT_FOUND` / 409 `VERIFY_BUSY` | `sandbox_verifier`, `demo_stores.serve` | — |
 | `GET /api/reports/{scan_id}` | ✅ works (in memory, lost on restart) | — | — |
 
 ### Setup
@@ -48,7 +48,7 @@ while the backend catches up. Tick items off here when they are merged.
 ### Order of work
 
 1. **Backend:** `ALLOW_LOCALHOST_SCANS` + `CORS_ORIGINS` in `.env.example`; rename `gaps`/`gap_id` → `issues`/`issue_id`; add `source`, `paypal_sdk_version`, `pages`, `screenshot_url` and the `/files` route.
-2. **Backend:** `POST /api/verify` using `get_verifier()` and `compare_runs()`; return the shape in `sample_result.json → verify`.
+2. ~~**Backend:** `POST /api/verify`~~ ✅ done. The code agent must call `backend.services.verify_service.register_fix(fix_id, store, patched_store)` so `{"fix_id": ...}` works.
 3. **Code agent + backend:** `POST /api/fix`, returning the shape in `sample_result.json → fix`.
 4. **Dashboard:** nothing to change for 1–3; check Live mode after each backend merge.
 

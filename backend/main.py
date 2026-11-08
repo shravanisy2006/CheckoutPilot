@@ -8,8 +8,11 @@ Then open:
     http://localhost:8000/docs   (interactive API documentation)
 """
 
+from pathlib import Path
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from backend.api.router import api_router
 from backend.core.config import settings
@@ -30,6 +33,13 @@ app.add_middleware(
 )
 
 app.include_router(api_router)
+
+# Screenshots and other generated files (outputs/ is git-ignored) are served at
+# /files/..., e.g. outputs/verifications/x/02_success_page.png ->
+# /files/verifications/x/02_success_page.png. See docs/api_contract.md.
+OUTPUTS_DIR = Path("outputs")
+OUTPUTS_DIR.mkdir(exist_ok=True)
+app.mount("/files", StaticFiles(directory=OUTPUTS_DIR), name="files")
 
 
 @app.get("/")

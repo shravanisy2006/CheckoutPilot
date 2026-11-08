@@ -44,6 +44,9 @@ SANDBOX_HOST = "www.sandbox.paypal.com"
 BUTTON_WAIT_SECONDS = 30      # PayPal button to appear on the store page
 POPUP_WAIT_SECONDS = 120      # login + pay inside the PayPal window
 SUCCESS_WAIT_SECONDS = 60     # store capturing the payment after the popup closes
+POPUP_OPEN_SECONDS = 15       # per click: how long to wait for the PayPal window
+CLICK_ATTEMPTS = 2            # click PayPal again if the first click was ignored
+BUTTON_SETTLE_SECONDS = 10    # max wait for PayPal's buttons to finish loading
 
 # Failure codes stored in result["error_code"] (the run itself does not raise).
 FAIL_STORE = "STORE_ERROR"                    # store page broken / empty cart
@@ -57,11 +60,17 @@ FAIL_POPUP_TIMEOUT = "PAYPAL_POPUP_TIMEOUT"   # could not finish login/pay in ti
 FAIL_CAPTURE = "CAPTURE_FAILED"               # store did not reach /success
 FAIL_NOT_COMPLETED = "ORDER_NOT_COMPLETED"    # Orders API says not COMPLETED
 
+# Failures caused by the store itself (as opposed to PayPal's pages or the test login).
+STORE_FAILURES = {FAIL_STORE, FAIL_NO_BUTTON, FAIL_CAPTURE, FAIL_NOT_COMPLETED}
+
 # What to look for inside the PayPal window. PayPal changes its pages often,
 # so each step has a few options, tried in order.
 EMAIL_INPUTS = ["input#email", "input[name='login_email']"]
 PASSWORD_INPUTS = ["input#password", "input[name='login_password']"]
-NEXT_BUTTONS = ["#btnNext"]
+NEXT_BUTTONS = ["#btnNext", "button[data-testid='nextButton']", "button[name='btnNext']"]
+NEXT_BUTTON_TEXT = re.compile(r"^\s*(Next|Continue)\s*$", re.I)
+NEXT_RETRY_SECONDS = 6  # PayPal's newer email page sometimes ignores the first click
+TYPING_DELAY_MS = 35     # pause between key presses when typing the login
 LOGIN_BUTTONS = ["#btnLogin"]
 PAY_BUTTONS = ["#payment-submit-btn", "[data-id='payment-submit-btn']",
                "button[data-testid='submit-button-initial']"]
@@ -203,6 +212,31 @@ def _find_paypal_button(page, timeout: float):
     return None, f"No PayPal button inside #paypal-button-container after {timeout:.0f}s"
 
 
+def _wait_for_buttons_ready(page, sdk: str) -> None:
+    """Give PayPal's buttons time to finish loading before clicking.
+
+    v5 draws its buttons inside an iframe in steps (the card button's label and
+    "Powered by PayPal" come last); a click before that is silently ignored.
+    """
+    if sdk != "v5":
+        page.wait_for_timeout(500)
+        return
+    deadline = time.monotonic() + BUTTON_SETTLE_SECONDS
+    frame = page.frame_locator("#paypal-button-container iframe").first
+    while time.monotonic() < deadline:
+        try:
+            if frame.get_by_text("Powered by", exact=False).first.is_visible():
+                break
+        except Exception:
+            pass
+        page.wait_for_timeout(500)
+    try:
+        page.wait_for_load_state("networkidle", timeout=5000)
+    except Exception:
+        pass
+    page.wait_for_timeout(1000)
+
+
 # -------------------------------------------------------- PayPal side ---
 def complete_paypal_popup(popup, email: str, password: str, timeout: float = POPUP_WAIT_SECONDS,
                           require_sandbox: bool = True) -> str:
@@ -238,6 +272,26 @@ def _pause(page, seconds: float) -> None:
         pass
 
 
+def _type_like_a_person(box, text: str) -> None:
+    """Type key by key: PayPal's newer login pages only enable Next after real key events."""
+    box.click(timeout=5000)
+    box.fill("")
+    box.press_sequentially(text, delay=TYPING_DELAY_MS)
+
+
+def _go_to_password_step(popup, email_box, state: dict) -> None:
+    """Click PayPal's Next button (old and new email pages), or press Enter."""
+    state["next_at"] = time.monotonic()
+    button = _first_visible(popup, NEXT_BUTTONS)
+    if button is None:
+        candidate = popup.get_by_role("button", name=NEXT_BUTTON_TEXT).first
+        button = candidate if candidate.count() and candidate.is_visible() else None
+    if button is not None:
+        button.click(timeout=5000)
+    else:
+        email_box.press("Enter")
+
+
 def _popup_step(popup, email: str, password: str, state: dict, require_sandbox: bool):
     """Do the next thing the PayPal window needs. Returns a failure code, or None to keep going."""
     try:
@@ -263,14 +317,18 @@ def _popup_step(popup, email: str, password: str, state: dict, require_sandbox: 
     email_box = _first_visible(popup, EMAIL_INPUTS)
     password_box = _first_visible(popup, PASSWORD_INPUTS)
     if email_box and not state["typed_email"] and email_box.is_editable():
-        email_box.fill(email)
+        _type_like_a_person(email_box, email)
         state["typed_email"] = True
-        next_button = _first_visible(popup, NEXT_BUTTONS)
-        if next_button and not password_box:
-            next_button.click(timeout=5000)
+        if not password_box:
+            _go_to_password_step(popup, email_box, state)
+        return None
+    if email_box and state["typed_email"] and not password_box \
+            and time.monotonic() - state.get("next_at", 0.0) > NEXT_RETRY_SECONDS:
+        # Still on the email page: the Next click did not go through, try again.
+        _go_to_password_step(popup, email_box, state)
         return None
     if password_box and not state["typed_password"]:
-        password_box.fill(password)
+        _type_like_a_person(password_box, password)
         state["typed_password"] = True
         login = _first_visible(popup, LOGIN_BUTTONS)
         (login.click(timeout=5000) if login else password_box.press("Enter"))
@@ -356,12 +414,21 @@ def _run_purchase(run: _Run, store, context, store_url: str, page: str, email: s
     run.result["paypal_sdk"] = sdk
     run.step("paypal_button_found", detail=f"SDK {sdk} on /{page}")
 
-    # 3. Click PayPal: a PayPal window (popup) opens.
-    try:
-        with context.expect_page(timeout=20000) as popup_info:
-            button.click()
-        popup = popup_info.value
-    except Exception:
+    # 3. Click PayPal: a PayPal window (popup) opens. PayPal ignores clicks while
+    #    its buttons are still loading, so wait for them to settle and retry once.
+    _wait_for_buttons_ready(store, sdk)
+    popup = None
+    for attempt in range(CLICK_ATTEMPTS):
+        try:
+            with context.expect_page(timeout=POPUP_OPEN_SECONDS * 1000) as popup_info:
+                button.click()
+            popup = popup_info.value
+            break
+        except Exception:
+            if attempt + 1 < CLICK_ATTEMPTS:
+                run.step("paypal_click_retry", ok=True, detail="No PayPal window yet; clicking again")
+                store.wait_for_timeout(2000)
+    if popup is None:
         run.shot(store, "no_popup")
         status = store.locator("#order-status").first
         detail = status.inner_text().strip() if status.count() else ""
@@ -440,7 +507,13 @@ def compare_runs(before: dict, after: dict) -> dict:
     if before.get("purchase_succeeded") and not after.get("purchase_succeeded"):
         changes.append("REGRESSION: the upgrade broke checkout. Do not approve.")
     if not before.get("purchase_succeeded") and after.get("purchase_succeeded"):
-        changes.append("The upgrade fixed a checkout that was failing.")
+        if before.get("error_code") in STORE_FAILURES:
+            changes.append("The upgrade fixed a checkout that was failing.")
+        else:
+            # The "before" run stopped inside PayPal's window or at login: that says
+            # nothing about the old store, so do not claim the upgrade fixed it.
+            changes.append(f"The 'before' payment could not be completed by the verifier "
+                           f"({before.get('error_code') or 'unknown'}); this is not a store problem.")
 
     if both_paid:
         summary = "Checkout works before and after the upgrade."
