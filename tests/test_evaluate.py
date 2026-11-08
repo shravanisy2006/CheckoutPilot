@@ -58,3 +58,26 @@ def test_main_writes_markdown(tmp_path, capsys):
     out = tmp_path / "results.md"
     assert evaluate.main(["--markdown", str(out)]) == 0
     assert "AI engine evaluation" in out.read_text()
+
+
+def test_answer_key_uses_only_known_issue_ids():
+    from ai_engine.capture_eval_shots import ANSWER_KEY
+    from ai_engine.prompts import VISION_ISSUE_CATALOGUE
+    assert len(ANSWER_KEY) == 8
+    for store, step, viewport, _needs, expected, _why in ANSWER_KEY:
+        assert store in ("legacy", "upgraded") and step in ("cart", "checkout")
+        assert viewport in ("desktop", "mobile")
+        assert set(expected) <= set(VISION_ISSUE_CATALOGUE)
+
+
+def test_capture_skips_pages_where_paypal_cannot_load(tmp_path):
+    """No internet to PayPal here: cart pages without PayPal are still captured, the rest skipped."""
+    from ai_engine.capture_eval_shots import capture
+    summary = capture(tmp_path, paypal_wait=2)
+    cases = json.loads((tmp_path / "eval_cases.json").read_text())
+    captured = {case["image"] for case in cases}
+    assert {"legacy_cart_desktop.png", "legacy_cart_mobile.png"} <= captured
+    assert summary["captured"] + len(summary["skipped"]) == 8
+    for case in cases:
+        assert (tmp_path / case["image"]).is_file() and case["label"] in (
+            "cart (desktop)", "cart (mobile)", "checkout (desktop)", "checkout (mobile)")

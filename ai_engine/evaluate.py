@@ -207,19 +207,22 @@ def evaluate_vision(cases_file: str) -> dict:
     cases = json.loads(Path(cases_file).read_text(encoding="utf-8"))
     results, details, errors, timings = [], [], [], []
 
-    for case in cases:
+    for number, case in enumerate(cases, 1):
         image = (base / case["image"]).resolve()
         expected = set(case.get("expected", []))
         if not image.is_file():
             errors.append(f"{case['image']}: file not found")
             continue
+        print(f"[{number}/{len(cases)}] {case['image']} ...", end=" ", flush=True)
         start = time.perf_counter()
         try:
             issues, _ = run_vision_checks(build_scan_data([str(image)], [case.get("label", "")]))
         except ModuleError as error:
+            print(f"error {error.code} ({time.perf_counter() - start:.0f}s)", flush=True)
             errors.append(f"{case['image']}: {error.code}")
             continue
         timings.append(time.perf_counter() - start)
+        print(f"done in {timings[-1]:.0f}s", flush=True)
         found = {issue["issue_id"] for issue in issues}
         results.append((expected, found))
         details.append({"image": case["image"], "expected": sorted(expected), "found": sorted(found)})
