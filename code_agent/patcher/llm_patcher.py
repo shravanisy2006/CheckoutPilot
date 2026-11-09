@@ -76,3 +76,4 @@ def synthesize_file_patch(
         return None
 
     return code
+
