@@ -40,3 +40,6 @@ class ScanResponse(BaseModel):
     scan_id: str = ""
     health_score: int | None = None
     warnings: list[str] = Field(default_factory=list)
+    # One entry per page x viewport: step, viewport, url, success, error, screenshot_url (/files/...)
+    pages: list[dict] = Field(default_factory=list)
+    paypal_sdk_version: str = ""  # "v4" | "v5" | "v6" | "none"

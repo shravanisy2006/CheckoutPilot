@@ -186,7 +186,10 @@ function runLine(label: string, run: Raw): string {
 export function adaptVerification(raw: Raw, apiBase = ""): VerificationResult {
   const before: Raw = raw["before"] ?? {};
   const after: Raw = raw["after"] ?? raw;
-  const simulated = (after["warnings"] ?? []).some((w: string) => /mock/i.test(w)) || after["is_real_sandbox_payment"] === false;
+  // The backend says it directly ("simulated"); a FAILED real payment is not a simulation.
+  const simulated = typeof raw["simulated"] === "boolean"
+    ? raw["simulated"]
+    : (after["warnings"] ?? []).some((w: string) => /mock/i.test(w)) || after["is_real_sandbox_payment"] === false;
   const passed = Boolean(raw["safe_to_approve"] ?? after["purchase_succeeded"]);
   const lastShot = (run: Raw) => {
     const shots: string[] = run["screenshots"] ?? [];

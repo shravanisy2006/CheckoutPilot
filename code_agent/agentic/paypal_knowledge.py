@@ -17,35 +17,45 @@ PAYPAL_V6_KNOWLEDGE_BASE = """
 - **Button Presentment**:
   - Legacy v5: `paypal.Buttons({...}).render('#container-id')`
   - Modern v6: Custom Web Component `<paypal-button id="paypal-button" type="pay"></paypal-button>` inside a container.
-- **Payment Lifecycle**:
+- **Loading** (v6 must load async and start from the tag's onload):
+  `<script async src="https://www.sandbox.paypal.com/web-sdk/v6/core" onload="onPayPalWebSdkLoaded()" onerror="onPayPalWebSdkFailed()"></script>`
+  placed AFTER the page's own scripts (they define onPayPalWebSdkLoaded).
+- **Payment Lifecycle** (source: developer.paypal.com/v5-v6):
   ```javascript
-  // 1. Fetch short-lived client token from merchant's server
-  const resp = await fetch('/api/paypal/client-token');
-  const { accessToken } = await resp.json();
+  // 1. Short-lived client token from the merchant's server (fallback: the public client ID)
+  const { accessToken } = await (await fetch('/api/paypal/client-token')).json();
 
-  // 2. Initialize instance
-  const instance = await window.paypal.createInstance({
+  // 2. Initialise. The component name is "paypal-payments" ("buttons" is v5 and is REJECTED by v6:
+  //    "unrecognized component in createInstance: buttons").
+  const sdk = await window.paypal.createInstance({
     clientToken: accessToken,
-    components: ['buttons']
+    components: ['paypal-payments'],
+    pageType: 'checkout',
   });
 
-  // 3. Create One-Time Payment Session
-  const session = await instance.createPayPalOneTimePaymentSession({
+  // 3. Eligibility is explicit in v6
+  const methods = await sdk.findEligibleMethods({ currencyCode: 'USD' });
+  if (!methods.isEligible('paypal')) return;
+
+  // 4. One-time payment session (note: data.orderId, lower-case "d")
+  const session = sdk.createPayPalOneTimePaymentSession({
     onApprove: async (data) => {
-      // Capture order on backend server: POST /api/orders/{id}/capture
-      await postJson(`/api/orders/${encodeURIComponent(data.orderID)}/capture`);
+      await postJson(`/api/orders/${encodeURIComponent(data.orderId)}/capture`);
       window.location.href = '/success';
     },
-    onCancel: () => console.log('Payment cancelled'),
-    onError: (err) => console.error('Payment error', err)
+    onCancel: () => {},
+    onError: (err) => console.error('Payment error', err),
   });
 
-  // 4. Bind to <paypal-button> click
-  button.addEventListener('click', async () => {
-    const order = await postJson('/api/orders', { items: cart });
-    await session.start({ orderId: order.id });
-  });
+  // 5. Show the hidden <paypal-button> and start the session on click.
+  //    The second argument is a PROMISE of {orderId}: call createOrder(), don't pass the function.
+  const button = document.querySelector('#paypal-button-container paypal-button');
+  button.removeAttribute('hidden');
+  button.addEventListener('click', () => session.start({ presentationMode: 'auto' }, createOrder()));
+  // where: async function createOrder() { const o = await postJson('/api/orders', {items}); return { orderId: o.id }; }
   ```
+- **Keep the page's other jobs**: if the v5 script also drew the cart lines or total, the upgrade must keep
+  doing that (otherwise the order summary shows $0.00).
 
 ## 2. Express Checkout on Cart Page
 - For higher conversion, an express `<paypal-button>` must be added directly to the cart page/template so buyers can skip long shipping forms.

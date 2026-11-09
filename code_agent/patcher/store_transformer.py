@@ -1,106 +1,148 @@
 """
-Target store transformations: applies clean, non-destructive upgrades
-to templates, JavaScript, CSS, and Python routes.
+Target store transformations: the built-in ("template") upgrade recipe.
+
+It turns a v5 checkout into the same v6 checkout as demo_stores/upgraded_store, the reference
+upgrade that has passed real PayPal Sandbox payments. Every step is guarded so it only changes
+what it recognises and leaves everything else (catalogue, prices, form fields, ids) untouched.
+
+v6 facts this relies on (developer.paypal.com/v5-v6):
+  - SDK: <script async src=".../web-sdk/v6/core" onload=...>, no settings in the URL
+  - paypal.createInstance({clientToken | clientId, components: ["paypal-payments"], pageType})
+  - findEligibleMethods() -> createPayPalOneTimePaymentSession({onApprove, onCancel, onError})
+  - session.start({presentationMode: "auto"}, createOrder())  (an order-id promise, not a function)
+  - <paypal-button> starts hidden; the script shows it once PayPal is eligible
 """
 
 import re
 
+V6_SDK_TAG = (
+    '  <!-- PayPal JavaScript SDK v6 -->\n'
+    '  <script async src="{{PAYPAL_SDK_URL}}" onload="onPayPalWebSdkLoaded()" '
+    'onerror="onPayPalWebSdkFailed()"></script>\n'
+)
+CLIENT_ID_META = '  <meta name="paypal-client-id" content="{{PAYPAL_CLIENT_ID}}">\n'
+V5_SCRIPT = re.compile(
+    r'[ \t]*(?:<!--[^\n]*SDK v5[^\n]*-->[ \t]*\n[ \t]*)?'
+    r'<script[^>]+src=["\'][^"\']*paypal\.com/sdk/js[^"\']*["\'][^>]*>\s*</script>[ \t]*\n?',
+    re.IGNORECASE,
+)
+# A synchronous SDK tag (no onload): v6 must load async and call onPayPalWebSdkLoaded() when ready.
+SYNC_SDK_TAG = re.compile(
+    r'[ \t]*(?:<!--[^\n]*SDK v5[^\n]*-->[ \t]*\n[ \t]*)?'
+    r'<script\s+src=["\'](?:\{\{PAYPAL_SDK_URL\}\}|[^"\']*web-sdk/v6/core)["\']\s*>\s*</script>[ \t]*\n?')
+CHECKOUT_DIV = re.compile(r'<div\s+class=["\']checkout(?: upgraded)?["\']>[ \t]*\n')
+OLD_LAYOUT_NOTE = re.compile(r'[ \t]*<!--\s*Desktop: two columns.*?below the fold\.\s*-->[ \t]*\n', re.DOTALL)
+NEW_LAYOUT_NOTE = ('    <!-- Upgrade: the summary + PayPal come first, so on mobile PayPal is visible without scrolling.\n'
+                   '         On desktop CSS still places the summary on the right. -->\n')
+ORDER_SUMMARY = re.compile(r'\n?([ \t]*<aside[^>]*id=["\']order-summary["\'][^>]*>.*?</aside>[ \t]*\n)', re.DOTALL)
+CHECKOUT_RENDER = """  <script>
+    (async function () {
+      const total = await renderCartLines(document.getElementById("cart-lines"));
+      document.getElementById("cart-total").textContent = "$" + total.toFixed(2);
+      if (readCart().length === 0) document.getElementById("cart-empty").hidden = false;
+    })();
+  </script>
+"""
+
+
+def _add_client_id_meta(html: str) -> str:
+    """The v6 script falls back to the public client ID if the client token fails."""
+    if 'name="paypal-client-id"' in html:
+        return html
+    return re.sub(r'(<meta\s+name=["\']viewport["\'][^>]*>[ \t]*\n)', lambda m: m.group(1) + CLIENT_ID_META, html, count=1)
+
+
+def _add_sdk_tag(html: str) -> str:
+    if "onPayPalWebSdkLoaded" in html or "</body>" not in html:
+        return html
+    return html.replace("</body>", V6_SDK_TAG + "</body>", 1)
+
 
 def patch_checkout_template(html: str) -> str:
-    """Upgrade checkout.html to use SDK v6 script, custom button element, and mobile layout class."""
-    # 1. Upgrade SDK script tag to v6
-    v5_script = re.compile(
-        r'<script[^>]+src=["\'][^"\']*paypal\.com/sdk/js[^"\']*["\'][^>]*></script>',
-        re.IGNORECASE,
-    )
-    if v5_script.search(html):
-        html = v5_script.sub('  <script src="{{PAYPAL_SDK_URL}}"></script>', html)
+    """Checkout page: v5 script out, v6 button + script in, summary + PayPal first on mobile."""
+    html = V5_SCRIPT.sub("", html)
+    html = SYNC_SDK_TAG.sub("", html)
+    html = _add_client_id_meta(html)
+    html = OLD_LAYOUT_NOTE.sub(NEW_LAYOUT_NOTE, html, count=1)
 
-    # 2. Add upgraded class to checkout grid
+    # Mobile: put the order summary (with PayPal) BEFORE the long form in the page.
+    # On desktop the CSS (.checkout.upgraded) still shows it on the right.
+    match = CHECKOUT_DIV.search(html)
+    summary = ORDER_SUMMARY.search(html)
+    if match and summary and summary.start() > match.end():
+        block = summary.group(1)
+        html = html[:summary.start()] + "\n" + html[summary.end():]
+        html = html[:match.end()] + block + "\n" + html[match.end():]
+    html = re.sub(r'<div\s+class=["\']checkout["\']>', '<div class="checkout upgraded">', html, count=1)
+
     html = re.sub(
-        r'<div\s+class=["\']checkout["\']>',
-        '<div class="checkout upgraded">',
-        html,
-        count=1,
-    )
+        r'<div id="paypal-button-container">\s*</div>',
+        '<div id="paypal-button-container">\n          <paypal-button type="pay" hidden></paypal-button>\n        </div>',
+        html, count=1)
 
-    # 3. Upgrade button container to include custom <paypal-button>
-    legacy_container = '<div id="paypal-button-container"></div>'
-    upgraded_container = (
-        '<div id="paypal-button-container">\n'
-        '        <paypal-button id="paypal-button" type="pay" hidden></paypal-button>\n'
-        '      </div>'
-    )
-    if legacy_container in html:
-        html = html.replace(legacy_container, upgraded_container)
-
-    # 4. Swap static script from checkout.js to paypal.js
-    html = html.replace('<script src="/static/checkout.js"></script>', '<script src="/static/paypal.js"></script>')
-
-    return html
+    # The v5 checkout.js drew the cart lines AND the v5 buttons: replace it with the v6 script
+    # plus the small cart-lines renderer it used to provide.
+    if '<script src="/static/checkout.js"></script>' in html:
+        html = html.replace('  <script src="/static/checkout.js"></script>\n',
+                            '  <script src="/static/paypal.js"></script>\n' + CHECKOUT_RENDER, 1)
+        html = html.replace('<script src="/static/checkout.js"></script>',
+                            '<script src="/static/paypal.js"></script>\n' + CHECKOUT_RENDER, 1)
+    return _add_sdk_tag(html)
 
 
 def patch_cart_template(html: str) -> str:
-    """Add express checkout to cart.html."""
-    # 1. Add paypal-client-id meta tag in head if missing
-    if '<meta name="paypal-client-id"' not in html:
-        html = html.replace(
-            '<title>Your cart',
-            '<meta name="paypal-client-id" content="{{PAYPAL_CLIENT_ID}}">\n  <title>Your cart',
-        )
-
-    # 2. Add express button before actions
-    if '<paypal-button' not in html and '<div class="actions"' in html:
-        express_block = (
-            '      <!-- Upgrade: PayPal express checkout right on the cart page (SDK v6). -->\n'
+    """Cart page: PayPal express checkout under the cart total (SDK v6)."""
+    html = V5_SCRIPT.sub("", html)
+    html = SYNC_SDK_TAG.sub("", html)
+    html = _add_client_id_meta(html)
+    if "<paypal-button" not in html and '<div class="actions"' in html:
+        express = (
+            '<!-- Upgrade: PayPal express checkout right on the cart page (SDK v6). -->\n'
             '      <div id="paypal-button-container" class="express">\n'
             '        <paypal-button type="pay" hidden></paypal-button>\n'
             '      </div>\n'
             '      <p id="order-status" role="status"></p>\n\n'
             '      <div class="actions"'
         )
-        html = html.replace('<div class="actions"', express_block, 1)
+        html = re.sub(r'<!--[^\n]*no PayPal button here[^\n]*-->\s*\n\s*', "", html, count=1, flags=re.IGNORECASE)
+        html = html.replace('<div class="actions"', express, 1)
+    if "/static/paypal.js" not in html and '<script src="/static/cart.js"></script>' in html:
+        html = html.replace('<script src="/static/cart.js"></script>',
+                            '<script src="/static/cart.js"></script>\n  <script src="/static/paypal.js"></script>', 1)
+    # Hide the express button when the cart is empty (the page's own refresh() keeps it in sync).
+    marker = 'document.getElementById("cart-empty").hidden = !empty;'
+    if marker in html and 'getElementById("paypal-button-container").hidden' not in html:
+        html = html.replace(marker, marker + '\n      document.getElementById("paypal-button-container").hidden = empty;', 1)
+    return _add_sdk_tag(html)
 
-    # 3. Add paypal.js script
-    if '/static/paypal.js' not in html and '<script src="/static/cart.js"></script>' in html:
-        html = html.replace(
-            '<script src="/static/cart.js"></script>',
-            '<script src="/static/cart.js"></script>\n  <script src="/static/paypal.js"></script>',
-        )
 
-    return html
+UPGRADE_CSS = """
+/* Upgrade (CheckoutPilot): v6 PayPal button + order summary first on mobile, right-hand column on desktop. */
+#paypal-button-container paypal-button { display: block; width: 100%; }
+#paypal-button-container paypal-button[hidden] { display: none; }
+.express { max-width: 420px; }
+.checkout.upgraded { grid-template-areas: "form summary"; }
+.checkout.upgraded #order-summary { grid-area: summary; }
+.checkout.upgraded #shipping-form { grid-area: form; }
+@media (max-width: 760px) {
+  .checkout.upgraded { grid-template-areas: "summary" "form"; }
+}
+"""
 
 
 def patch_style_css(css: str) -> str:
-    """Add responsive grid template areas to style.css for above-the-fold mobile button."""
+    """Add the upgrade rules at the end, as one self-contained block (never edits existing rules)."""
     if ".checkout.upgraded" in css:
         return css
-
-    rules = (
-        "\n/* Upgraded checkout: summary is first on mobile, but on the right on desktop. */\n"
-        '.checkout.upgraded { grid-template-areas: "form summary"; }\n'
-        ".checkout.upgraded #order-summary { grid-area: summary; }\n"
-        ".checkout.upgraded #shipping-form { grid-area: form; }\n"
-    )
-
-    # Insert before media queries or at end
-    if "@media (max-width: 760px)" in css:
-        parts = css.split("@media (max-width: 760px)")
-        media_block = (
-            "@media (max-width: 760px) {\n"
-            '  .checkout.upgraded { grid-template-areas: "summary" "form"; }'
-        )
-        css = parts[0] + rules + media_block + parts[1].replace("@media (max-width: 760px) {", "", 1)
-    else:
-        css = css + rules
-
-    return css
+    return css.rstrip("\n") + "\n" + UPGRADE_CSS
 
 
 def patch_app_routes(code: str) -> str:
-    """Add client-token endpoint and SDK URL replacement to app.py."""
-    if "/api/paypal/client-token" in code:
-        return code
+    """Add client-token endpoint and SDK URL replacement to app.py.
+
+    Each step checks for itself, so an earlier (e.g. AI) edit that already added one part
+    never makes the others get skipped.
+    """
 
     # 1. Define SANDBOX_SDK_URL if not present
     if "SANDBOX_SDK_URL" not in code:
@@ -136,6 +178,8 @@ def patch_app_routes(code: str) -> str:
         '    return {"accessToken": token}\n\n\n'
     )
 
+    if "/api/paypal/client-token" in code:
+        return code
     if '@app.post("/api/orders")' in code:
         code = code.replace('@app.post("/api/orders")', endpoint_code + '@app.post("/api/orders")', 1)
     else:
@@ -145,26 +189,19 @@ def patch_app_routes(code: str) -> str:
 
 
 def get_paypal_v6_js() -> str:
-    """Return the client-side PayPal v6 SDK integration script."""
-    return """// Inkwell & Co. - checkout and cart integration using PayPal JavaScript SDK v6.
-// Uses one-time payment sessions and web components (<paypal-button>).
+    """The v6 browser script: identical to demo_stores/upgraded_store/static/paypal.js (Sandbox-verified)."""
+    return PAYPAL_V6_JS
 
-const statusBox = document.getElementById("order-status");
+
+PAYPAL_V6_JS = """// Inkwell & Co. (upgraded) - PayPal JavaScript SDK v6 one-time payment.
+// Used on the cart page (express checkout) and the checkout page.
+// The server works out the price; the browser only sends item IDs and quantities.
 
 function showStatus(message, kind) {
-  if (!statusBox) return;
-  statusBox.textContent = message;
-  statusBox.className = kind || "";
-}
-
-async function fetchClientToken() {
-  const resp = await fetch("/api/paypal/client-token");
-  if (!resp.ok) {
-    const data = await resp.json().catch(() => ({}));
-    throw new Error(data.detail || ("Client token failed (" + resp.status + ")"));
-  }
-  const data = await resp.json();
-  return data.accessToken;
+  const box = document.getElementById("order-status");
+  if (!box) return;
+  box.textContent = message;
+  box.className = kind || "";
 }
 
 async function postJson(url, body) {
@@ -180,49 +217,85 @@ async function postJson(url, body) {
   return data;
 }
 
-async function initPayPalV6() {
-  const clientToken = await fetchClientToken();
-  if (!window.paypal || !window.paypal.createInstance) {
+// v6 needs a browser-safe client token from our server (the secret stays on the server).
+// If that fails, fall back to the public client ID.
+async function getSdkAuth() {
+  try {
+    const response = await fetch("/api/paypal/client-token");
+    if (response.ok) {
+      const data = await response.json();
+      if (data.accessToken) return { clientToken: data.accessToken };
+    }
+  } catch (error) { /* fall through */ }
+  const meta = document.querySelector('meta[name="paypal-client-id"]');
+  return { clientId: meta ? meta.content : "" };
+}
+
+// The SDK wants a Promise that resolves to { orderId }.
+async function createOrder() {
+  const order = await postJson("/api/orders", { items: readCart() });
+  return { orderId: order.id };
+}
+
+async function captureAndFinish(orderId) {
+  showStatus("Capturing payment...");
+  const result = await postJson("/api/orders/" + encodeURIComponent(orderId) + "/capture");
+  if (result.status !== "COMPLETED") {
+    showStatus("Payment not completed (status: " + result.status + "). Please try again.", "error");
+    return;
+  }
+  clearCart();
+  window.location.href = "/success?order=" + encodeURIComponent(result.id);
+}
+
+async function setUpPayPal() {
+  if (readCart().length === 0) return;  // nothing to pay for
+  const sdkInstance = await window.paypal.createInstance({
+    ...(await getSdkAuth()),
+    components: ["paypal-payments"],
+    pageType: "checkout",
+  });
+
+  const methods = await sdkInstance.findEligibleMethods({ currencyCode: "USD" });
+  if (!methods.isEligible("paypal")) {
+    showStatus("PayPal is not available for this purchase.", "error");
     return;
   }
 
-  const instance = await window.paypal.createInstance({
-    clientToken: clientToken,
-    components: ["buttons"],
-  });
-
-  const session = await instance.createPayPalOneTimePaymentSession({
+  const session = sdkInstance.createPayPalOneTimePaymentSession({
     onApprove: async function (data) {
-      showStatus("Capturing payment...");
-      const result = await postJson("/api/orders/" + encodeURIComponent(data.orderID) + "/capture");
-      if (result.status !== "COMPLETED") {
-        showStatus("Payment not completed (status: " + result.status + ").", "error");
-        return;
+      try {
+        await captureAndFinish(data.orderId);
+      } catch (error) {
+        showStatus("Payment failed: " + error.message, "error");
       }
-      if (typeof clearCart === "function") clearCart();
-      window.location.href = "/success?order=" + encodeURIComponent(result.id);
     },
     onCancel: function () {
-      showStatus("Payment cancelled. Cart saved.");
+      showStatus("Payment cancelled. Your cart is still saved.");
     },
-    onError: function (err) {
-      showStatus("Payment error: " + (err && err.message ? err.message : err), "error");
+    onError: function (error) {
+      showStatus("Payment failed: " + (error && error.message ? error.message : error), "error");
     },
   });
 
-  const buttons = document.querySelectorAll("paypal-button");
-  buttons.forEach((btn) => {
-    btn.hidden = false;
-    btn.addEventListener("click", async () => {
-      showStatus("Starting PayPal checkout...");
-      const order = await postJson("/api/orders", { items: typeof readCart === "function" ? readCart() : [] });
-      await session.start({ orderId: order.id });
-    });
+  const button = document.querySelector("#paypal-button-container paypal-button");
+  button.removeAttribute("hidden");
+  button.addEventListener("click", async function () {
+    showStatus("");
+    try {
+      await session.start({ presentationMode: "auto" }, createOrder());
+    } catch (error) {
+      showStatus("Payment failed: " + error.message, "error");
+    }
   });
 }
 
-document.addEventListener("DOMContentLoaded", () => {
-  initPayPalV6().catch((err) => showStatus("PayPal init error: " + err.message, "error"));
-});
-"""
+// Called by the SDK <script> tag's onload / onerror.
+function onPayPalWebSdkLoaded() {
+  setUpPayPal().catch((error) => showStatus("PayPal could not start: " + error.message, "error"));
+}
 
+function onPayPalWebSdkFailed() {
+  showStatus("PayPal could not load. Check your internet connection.", "error");
+}
+"""

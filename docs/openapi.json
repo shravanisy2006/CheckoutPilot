@@ -534,6 +534,19 @@
             },
             "type": "array",
             "title": "Warnings"
+          },
+          "pages": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Pages"
+          },
+          "paypal_sdk_version": {
+            "type": "string",
+            "title": "Paypal Sdk Version",
+            "default": ""
           }
         },
         "type": "object",

@@ -15,6 +15,8 @@ This is acceptable for the current hackathon MVP.
 
 import logging
 import uuid
+from dataclasses import replace
+from pathlib import Path
 
 from ai_engine.checkout_analyzer import analyze_checkout_detailed
 
@@ -22,12 +24,38 @@ logger = logging.getLogger(__name__)
 from backend.schemas.models import ModuleError
 from backend.schemas.scan import Gap, ScanRequest, ScanResponse
 from impact_ranker.ranker import health_score, rank_issues
+from scanner.browser import BrowserConfig
 from scanner.checkout_scanner import scan_store
 from scanner.exceptions import InvalidURLError
 
 # In-memory report storage keyed by scan_id (demo scope).
 # See module docstring for persistence and thread-safety limitations.
 _reports: dict[str, dict] = {}
+
+# Scan screenshots go under outputs/, which the backend serves at /files/ (see main.py).
+SCANS_DIR = Path("outputs") / "scans"
+
+
+def _file_url(path: str) -> str:
+    """outputs/scans/<id>/x.png (absolute or relative) -> /files/scans/<id>/x.png; else ""."""
+    path = str(path or "").replace("\\", "/")
+    return "/files/" + path.split("outputs/", 1)[1] if "outputs/" in path else ""
+
+
+def _page_summaries(pages: list) -> list[dict]:
+    """The parts of each scanned page the dashboard needs (never the raw HTML)."""
+    return [
+        {
+            "step": p.get("step", ""),
+            "viewport": p.get("viewport", ""),
+            "url": p.get("url", ""),
+            "success": bool(p.get("success", False)),
+            "error": p.get("error", ""),
+            "screenshot_url": _file_url(p.get("screenshot_path", "")),
+        }
+        for p in pages
+        if isinstance(p, dict)
+    ]
 
 
 def _build_failed_record(
@@ -65,7 +93,8 @@ def run_scan(request: ScanRequest) -> ScanResponse:
 
     try:
         # Step 1: walk the store's checkout and collect raw data.
-        scan_data = scan_store(request.store_url, include_mobile=request.include_mobile)
+        config = replace(BrowserConfig.from_env(), screenshots_dir=str(SCANS_DIR / scan_id))
+        scan_data = scan_store(request.store_url, include_mobile=request.include_mobile, config=config)
 
         # Validate scanner output explicitly.
         if not isinstance(scan_data, dict):
@@ -147,6 +176,9 @@ def run_scan(request: ScanRequest) -> ScanResponse:
             "gaps": [g.model_dump() for g in gap_models],
             "health_score": computed_health_score,
             "warnings": warnings,
+            "pages": _page_summaries(pages),
+            "paypal_sdk_version": {"unknown": "none", "": "none"}.get(
+                str(scan_data.get("detected_sdk_version", "")), str(scan_data.get("detected_sdk_version"))),
         }
         _reports[scan_id] = record
         return ScanResponse(**record)

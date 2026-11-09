@@ -46,6 +46,8 @@ export function CheckoutProvider({ children }: { children: ReactNode }) {
   const [verify, setVerify] = useState<Task<VerificationResult>>(idle);
   const [selected, setSelected] = useState<string[]>([]);
   const gen = useRef(0);
+  // A Sandbox verification makes real test payments and takes 1-2 minutes: never start a second one.
+  const verifying = useRef(false);
 
   const setMode = (m: Mode) => {
     gen.current++; // invalidate in-flight work so results never cross modes
@@ -104,10 +106,11 @@ export function CheckoutProvider({ children }: { children: ReactNode }) {
   }, [mode, scan.data, selected]);
 
   const startVerify = useCallback(async () => {
-    if (!scan.data || !fix.data) return;
+    if (!scan.data || !fix.data || verifying.current) return;
+    verifying.current = true;
     const g = ++gen.current;
     const ok = () => g === gen.current;
-    setVerify({ phase: "running", progress: 0, stage: "Queued" });
+    setVerify({ phase: "running", progress: 0, stage: "Paying in the PayPal Sandbox (about 1-2 minutes)" });
     try {
       let data: VerificationResult;
       if (mode === "demo") {
@@ -119,6 +122,8 @@ export function CheckoutProvider({ children }: { children: ReactNode }) {
       if (ok()) setVerify({ phase: "success", progress: 100, data });
     } catch (e) {
       if (ok()) setVerify({ phase: "error", progress: 0, error: msg(e) });
+    } finally {
+      verifying.current = false;
     }
   }, [mode, scan.data, fix.data]);
 
