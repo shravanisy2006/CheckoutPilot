@@ -306,3 +306,36 @@ def test_compare_does_not_blame_store_for_verifier_problems():
     assert any("not a store problem" in c for c in changes)
     broken_store = dict(before, error_code="PAYPAL_BUTTON_MISSING")
     assert "The upgrade fixed a checkout that was failing." in compare_runs(broken_store, after)["changes"]
+
+
+def test_browser_does_not_report_automation(tmp_path, buyer, monkeypatch):
+    """PayPal's newer login page ignores browsers that report navigator.webdriver / HeadlessChrome."""
+    store = tmp_path / "probe_store"
+    store.mkdir()
+    probe = FAKE_STORE.replace('"/": \'<button id="add-to-cart">Add</button>\',',
+        '"/": \'<button id="add-to-cart">Add</button><p id="probe"></p><script>'
+        'document.getElementById("probe").textContent = String(navigator.webdriver) + "|" + navigator.userAgent;'
+        '</script>\',')
+    assert probe != FAKE_STORE
+    (store / "app.py").write_text(probe)
+    port = free_port()
+    url = start_store(store, port)
+    seen = {}
+    real_purchase = verifier._run_purchase
+
+    def spy(run, page, context, *args):
+        page.goto(args[0] + "/")
+        seen["probe"] = page.inner_text("#probe")
+        return real_purchase(run, page, context, *args)
+
+    monkeypatch.setattr(verifier, "_run_purchase", spy)
+    monkeypatch.setattr(verifier, "OUTPUT_ROOT", tmp_path / "out")
+    monkeypatch.setattr(verifier, "SANDBOX_HOST", "127.0.0.1")
+    monkeypatch.setattr(verifier, "_confirm_with_api", lambda run, order_id: None)
+    try:
+        verifier.verify_checkout(url)
+    finally:
+        stop_store(port)
+    webdriver, agent = seen["probe"].split("|", 1)
+    assert webdriver in ("undefined", "false")
+    assert "Headless" not in agent and "Chrome/" in agent
