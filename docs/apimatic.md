@@ -4,7 +4,7 @@ CheckoutPilot's backend publishes its API description automatically (OpenAPI 3.1
 We use [APIMatic](https://www.apimatic.io/) to turn it into a developer portal and
 client SDKs, so a merchant or platform can call CheckoutPilot from their own code.
 
-- API description: [`docs/openapi.json`](openapi.json) (validated, 6 endpoints)
+- API description: [`docs/openapi.json`](openapi.json) (validated, 8 endpoints)
 - Field-by-field reference: [`docs/api_contract.md`](api_contract.md)
 
 ## 1. Export the API description

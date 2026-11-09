@@ -46,3 +46,5 @@ apimatic-sdk*/
 # Real-store trial lists (may name other companies; keep local)
 stores.txt
 scripts/stores.txt
+# --- Teamwork / agent scratch ---
+.agents/

@@ -33,7 +33,7 @@ while the backend catches up. Tick items off here when they are merged.
 
 | Endpoint | Status | Depends on | Owner |
 |---|---|---|---|
-| `POST /api/fix` | ❌ not built (dashboard shows "not available yet") | Code agent | Backend + code agent |
+| `POST /api/fix` | ✅ built. Body: `{"scan_id": ...}` or `{"store": "legacy"}`, optional `issue_ids`. Patches a **copy** in `outputs/patched/<fix_id>/` and registers it for `/api/verify`. Extra fields: `generated_by` (`"ai+template"` = AI plan then template upgrade, or `"template"`), `warnings`. Errors: 400 `FIX_NO_STORE`, 409 `FIX_BUSY`, 500 `FIX_FAILED` | `code_agent.fix_builder.build_fix` | — |
 | `POST /api/verify` | ✅ built. Body: `{"fix_id": ...}` or `{"before_store": "legacy", "after_store": "upgraded"}`; `GET /api/verify/{id}` returns a saved result. Errors: 400 / 404 `FIX_NOT_FOUND` / 409 `VERIFY_BUSY` | `sandbox_verifier`, `demo_stores.serve` | — |
 | `GET /api/reports/{scan_id}` | ✅ works (in memory, lost on restart) | — | — |
 
@@ -49,7 +49,7 @@ while the backend catches up. Tick items off here when they are merged.
 
 1. **Backend:** `ALLOW_LOCALHOST_SCANS` + `CORS_ORIGINS` in `.env.example`; rename `gaps`/`gap_id` → `issues`/`issue_id`; add `source`, `paypal_sdk_version`, `pages`, `screenshot_url` and the `/files` route.
 2. ~~**Backend:** `POST /api/verify`~~ ✅ done. The code agent must call `backend.services.verify_service.register_fix(fix_id, store, patched_store)` so `{"fix_id": ...}` works.
-3. **Code agent + backend:** `POST /api/fix`, returning the shape in `sample_result.json → fix`.
+3. ~~**Code agent + backend:** `POST /api/fix`~~ ✅ done (`backend/services/fix_service.py` → `code_agent/fix_builder.py`).
 4. **Dashboard:** nothing to change for 1–3; check Live mode after each backend merge.
 
 | Step | Endpoint | Sample in `sample_result.json` |
