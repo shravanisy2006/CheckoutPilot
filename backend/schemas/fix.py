@@ -2,6 +2,7 @@
 
 from pydantic import BaseModel, Field
 
+
 DEFAULT_FIXABLE = ["sdk_outdated", "no_paypal_on_cart", "button_below_fold_mobile"]
 
 

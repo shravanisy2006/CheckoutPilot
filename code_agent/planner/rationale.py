@@ -48,4 +48,3 @@ def get_rationale(gap_id: str) -> tuple[str, str]:
         f"Automated upgrade to resolve checkout gap '{gap_id}' in accordance with PayPal modern standards.",
         "Improves checkout experience and reduces payment friction.",
     )
-

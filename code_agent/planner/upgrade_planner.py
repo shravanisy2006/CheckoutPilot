@@ -249,4 +249,3 @@ def plan_upgrades(repo_path: str | Path, gaps: Optional[list[dict[str, Any]]] = 
     """Convenience functional wrapper for UpgradePlanner."""
     planner = UpgradePlanner(repo_path)
     return planner.create_plan(gaps)
-

@@ -66,4 +66,3 @@ def test_plan_technical_rationale_content():
 
     # Check rationale mentions v6
     assert any("v6" in c["rationale"] for c in sdk_changes)
-

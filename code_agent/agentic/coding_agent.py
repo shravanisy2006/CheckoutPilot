@@ -137,4 +137,3 @@ class AutonomousCodingAgent:
             "errors": result.get("errors", []),
             "generated_by": self.last_plan_source or "template",
         }
-

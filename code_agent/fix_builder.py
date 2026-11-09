@@ -10,9 +10,11 @@ and only the copy is patched. The result says whether the plan came from the AI 
 """
 
 import difflib
+import errno
 import os
 import re
 import shutil
+import stat
 import uuid
 from pathlib import Path
 from typing import Any, Optional
@@ -122,9 +124,27 @@ def build_fix(store_dir: str | Path, issue_ids: list[str], fix_id: Optional[str]
     gaps = [{"gap_id": i, "issue_id": i} for i in issue_ids]
     before = _text_files(source)
 
+    def _rmtree_onerror(func, path, exc_info):
+        """Error handler for shutil.rmtree on Windows read-only files.
+
+        Windows Error 5 (Access is denied) / errno.EACCES occurs when trying
+        to delete read-only files.  We make the file writable and retry.
+        """
+        exc_val = exc_info[1]
+        win_err = getattr(exc_val, "winerror", None)
+        errno_val = getattr(exc_val, "errno", None)
+        if win_err == 5 or errno_val in (errno.EACCES, errno.EPERM):
+            try:
+                os.chmod(path, stat.S_IWRITE | stat.S_IREAD)
+            except Exception:
+                pass
+            func(path)
+        else:
+            raise
+
     def attempt(llm=None):
         if target.exists():
-            shutil.rmtree(target)
+            shutil.rmtree(target, onerror=_rmtree_onerror)
         shutil.copytree(source, target, ignore=shutil.ignore_patterns(*SKIP_DIRS))
         agent = AutonomousCodingAgent(target, llm=llm)
         plan = agent.plan_upgrades(gaps)

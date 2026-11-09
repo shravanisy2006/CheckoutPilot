@@ -8,7 +8,12 @@ from backend.services import fix_service
 
 router = APIRouter(prefix="/fix", tags=["Fix"])
 
-_STATUS = {fix_service.FIX_BUSY: 409, fix_service.FIX_FAILED: 500}
+_STATUS = {
+    fix_service.FIX_BUSY: 409,
+    fix_service.FIX_FAILED: 500,
+    fix_service.SCAN_NOT_FOUND: 404,
+    fix_service.FIX_NO_STORE: 400,
+}
 
 
 @router.post("")

@@ -69,4 +69,3 @@ PAYPAL_V6_KNOWLEDGE_BASE = """
 - PRESERVE all existing HTML element IDs and form attributes so other scripts do not break.
 - Adapt cleanly to the merchant's framework (FastAPI, Flask, Django, Express, Next.js, PHP, Vanilla HTML).
 """
-

@@ -1,5 +1,4 @@
-"""
-Fix service: the FIX step. POST /api/fix -> code agent writes the upgrade on a COPY of the store.
+"""Fix service: the FIX step. POST /api/fix -> code agent writes the upgrade on a COPY of the store.
 
 The original store is never edited: the copy goes to outputs/patched/<fix_id>/. Every fix is
 registered with the verify service, so POST /api/verify {"fix_id": ...} can then make a real
@@ -8,6 +7,7 @@ PayPal Sandbox payment on the original and on the patched copy.
 
 import threading
 import uuid
+from typing import Any
 from urllib.parse import urlparse
 
 from backend.schemas.fix import FixRequest
@@ -18,6 +18,9 @@ from demo_stores.serve import KNOWN_STORES, resolve_store
 FIX_NO_STORE = "FIX_NO_STORE"
 FIX_BUSY = "FIX_BUSY"
 FIX_FAILED = "FIX_FAILED"
+SCAN_NOT_FOUND = "SCAN_NOT_FOUND"
+NO_ISSUES_SELECTED = "NO_ISSUES_SELECTED"
+INVALID_ISSUE_IDS = "INVALID_ISSUE_IDS"
 
 _fixes: dict[str, dict] = {}
 _lock = threading.Lock()
@@ -35,12 +38,35 @@ def _store_from_scan(scan_id: str) -> str:
                                     "stores). For a real store it would work on the merchant's repository.")
 
 
+def create_upgrade_plan(repo_path: str, gaps: list | None = None) -> list[dict[str, Any]]:
+    """Stub: code agent placeholder. Not used by run_fix() which uses build_fix() instead."""
+    return []
+
+
+def generate_upgrade(repo_path: str, plan: list | None = None) -> dict[str, Any]:
+    """Stub: code agent placeholder. Not used by run_fix() which uses build_fix() instead."""
+    return {"branch": "", "files_changed": [], "pull_request_url": ""}
+
+
+def _validate_issue_ids(scan_id: str, issue_ids: list[str]) -> None:
+    """Validate that issue_ids are among the scan's known issues."""
+    report = scan_service.get_report(scan_id)
+    if report.get("status") == "not_found":
+        raise ModuleError(FIX_NO_STORE, f"No scan with id {scan_id}.")
+    report_issue_ids = {i.issue_id if hasattr(i, 'issue_id') else i.get("issue_id", "") for i in report.get("issues", [])}
+    invalid = [i for i in issue_ids if i not in report_issue_ids]
+    if invalid:
+        raise ModuleError(INVALID_ISSUE_IDS, f"Invalid issue ID(s): {', '.join(invalid)}")
+
+
 def run_fix(request: FixRequest) -> dict:
+    if not request.issue_ids:
+        raise ModuleError(NO_ISSUES_SELECTED, "Choose at least one issue to fix.")
+    if request.scan_id:
+        _validate_issue_ids(request.scan_id, request.issue_ids)
     store = request.store or (_store_from_scan(request.scan_id) if request.scan_id else "legacy")
     if store not in KNOWN_STORES:
         raise ModuleError(FIX_NO_STORE, f"Unknown store {store!r}. Use one of: {', '.join(KNOWN_STORES)}.")
-    if not request.issue_ids:
-        raise ModuleError(FIX_NO_STORE, "Choose at least one issue to fix.")
     if not _lock.acquire(blocking=False):
         raise ModuleError(FIX_BUSY, "A fix is already being written. Try again in a moment.")
     try:
@@ -59,7 +85,8 @@ def run_fix(request: FixRequest) -> dict:
         problems = "; ".join(fix["errors"]) or "no files were changed"
         raise ModuleError(FIX_FAILED, f"The upgrade did not pass its checks ({problems}). "
                                       f"Details: GET /api/fix/{fix['fix_id']}")
-    verify_service.register_fix(fix["fix_id"], store=store, patched_store=fix["patched_store_dir"])
+    verify_service.register_fix(fix["fix_id"], store=store, patched_store=fix["patched_store_dir"],
+                                scan_id=request.scan_id)
     return fix
 
 

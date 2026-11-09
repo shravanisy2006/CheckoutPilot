@@ -101,4 +101,3 @@ def test_autonomous_coding_agent_end_to_end_upgrade(tmp_path):
     assert result["success"] is True
     assert len(result["files_changed"]) >= 4
     assert (target_store / "static" / "paypal.js").exists()
-

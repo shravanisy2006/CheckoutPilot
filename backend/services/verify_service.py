@@ -25,6 +25,7 @@ import requests
 
 from backend.schemas.models import ModuleError
 from backend.schemas.verify import VerifyRequest
+from backend.services.scan_service import get_report, _reports
 from demo_stores.serve import KNOWN_STORES, resolve_store, start_store, stop_store
 from sandbox_verifier import compare_runs, get_verifier, verify_checkout_mock
 
@@ -36,16 +37,23 @@ VERIFY_BUSY = "VERIFY_BUSY"
 
 OUTPUTS_DIR = Path("outputs")
 
-# fix_id -> {"store": <original store>, "patched_store": <patched store folder or URL>}
+# fix_id -> {"store": <original store>, "patched_store": <patched store folder or URL>, "scan_id": <scan_id>}
 _fixes: dict[str, dict] = {}
 # verification_id -> result (in memory, like the scan reports)
 _verifications: dict[str, dict] = {}
 _lock = threading.Lock()
 
 
-def register_fix(fix_id: str, store: str, patched_store: str) -> None:
-    """Called by POST /api/fix: remember which stores a fix compares."""
-    _fixes[fix_id] = {"store": store, "patched_store": patched_store}
+def register_fix(fix_id: str, store: str, patched_store: str, scan_id: str | None = None) -> None:
+    """Called by POST /api/fix: remember which stores a fix compares.
+
+    Args:
+        fix_id: Unique fix identifier.
+        store: The original (unpatched) store URL.
+        patched_store: The patched store directory or URL.
+        scan_id: The scan ID that originated this fix (optional).
+    """
+    _fixes[fix_id] = {"store": store, "patched_store": patched_store, "scan_id": scan_id}
 
 
 def get_verification(verification_id: str) -> dict | None:
@@ -173,4 +181,12 @@ def run_verification(request: VerifyRequest) -> dict:
         "simulated": mock,
     }
     _verifications[verification_id] = result
+
+    # Store the verification result in the originating scan report, if applicable.
+    if request.fix_id:
+        fix = _fixes.get(request.fix_id)
+        scan_id = fix.get("scan_id") if fix else None
+        if scan_id and scan_id in _reports:
+            _reports[scan_id]["verification"] = result
+
     return result

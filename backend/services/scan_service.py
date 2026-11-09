@@ -1,5 +1,4 @@
-"""
-Scan service: connects the API to the individual modules.
+"""Scan service: connects the API to the individual modules.
 
 The API routes stay thin and call this service. This service calls the
 modules (scanner -> ai_engine -> impact_ranker) in order. Each module only
@@ -14,48 +13,128 @@ This is acceptable for the current hackathon MVP.
 """
 
 import logging
+import os
 import uuid
 from dataclasses import replace
+from datetime import datetime, timezone
 from pathlib import Path
 
 from ai_engine.checkout_analyzer import analyze_checkout_detailed
-
-logger = logging.getLogger(__name__)
 from backend.schemas.models import ModuleError
-from backend.schemas.scan import Gap, ScanRequest, ScanResponse
+from backend.schemas.scan import Gap, Impact, ScanRequest, ScanResponse
 from impact_ranker.ranker import health_score, rank_issues
 from scanner.browser import BrowserConfig
 from scanner.checkout_scanner import scan_store
 from scanner.exceptions import InvalidURLError
 
+logger = logging.getLogger(__name__)
+
 # In-memory report storage keyed by scan_id (demo scope).
 # See module docstring for persistence and thread-safety limitations.
 _reports: dict[str, dict] = {}
 
-# Scan screenshots go under outputs/, which the backend serves at /files/ (see main.py).
-SCANS_DIR = Path("outputs") / "scans"
+
+def _scan_id() -> str:
+    """Generate a timestamped scan ID, e.g. scan_20261108_132000_ab12."""
+    now = datetime.now(tz=timezone.utc)
+    ts = now.strftime("%Y%m%d_%H%M%S")
+    suffix = uuid.uuid4().hex[:4]
+    return f"scan_{ts}_{suffix}"
 
 
-def _file_url(path: str) -> str:
-    """outputs/scans/<id>/x.png (absolute or relative) -> /files/scans/<id>/x.png; else ""."""
-    path = str(path or "").replace("\\", "/")
-    return "/files/" + path.split("outputs/", 1)[1] if "outputs/" in path else ""
+def _health_label(score: int | None) -> str:
+    """Convert a health score (0-100) to a label."""
+    if score is None:
+        return ""
+    if score < 50:
+        return "poor"
+    if score < 80:
+        return "fair"
+    return "good"
 
 
-def _page_summaries(pages: list) -> list[dict]:
-    """The parts of each scanned page the dashboard needs (never the raw HTML)."""
-    return [
-        {
-            "step": p.get("step", ""),
-            "viewport": p.get("viewport", ""),
-            "url": p.get("url", ""),
-            "success": bool(p.get("success", False)),
-            "error": p.get("error", ""),
-            "screenshot_url": _file_url(p.get("screenshot_path", "")),
-        }
-        for p in pages
-        if isinstance(p, dict)
-    ]
+def _issue_counts(ranked_issues: list[dict]) -> dict[str, int]:
+    """Count issues by severity."""
+    counts = {"high": 0, "medium": 0, "low": 0}
+    for item in ranked_issues:
+        sev = item.get("severity", "unknown")
+        if sev in counts:
+            counts[sev] += 1
+    return counts
+
+
+def _map_page_to_contract(page: dict, scan_id: str) -> dict:
+    """Map a scanner page dict to the API contract page format."""
+    screenshot_path = page.get("screenshot_path", "") or ""
+    screenshot_url = ""
+    if screenshot_path:
+        basename = os.path.basename(screenshot_path)
+        screenshot_url = f"/files/scans/{scan_id}/{basename}"
+
+    paypal_elements = page.get("paypal_elements") or []
+    paypal_found = any(el.get("visible", False) for el in paypal_elements)
+
+    # Check if any visible PayPal element is above the fold.
+    viewport_height = page.get("viewport_height")
+    paypal_visible_without_scroll = False
+    for el in paypal_elements:
+        if not el.get("visible", False):
+            continue
+        box = el.get("bounding_box") or {}
+        y = box.get("y", 0)
+        height = box.get("height", 0)
+        bottom = y + height
+        if viewport_height is not None:
+            if 0 < bottom <= viewport_height:
+                paypal_visible_without_scroll = True
+                break
+        else:
+            # Fall back to default viewport heights.
+            default_heights = {"desktop": 800, "mobile": 667}
+            vp_height = default_heights.get(page.get("viewport", "desktop"), 800)
+            if 0 < bottom <= vp_height:
+                paypal_visible_without_scroll = True
+                break
+
+    return {
+        "step": page.get("step", ""),
+        "viewport": page.get("viewport", ""),
+        "url": page.get("url", ""),
+        "screenshot_url": screenshot_url,
+        "paypal_found": paypal_found,
+        "paypal_visible_without_scroll": paypal_visible_without_scroll,
+    }
+
+
+def _map_issue_to_contract(item: dict, scan_id: str) -> Gap:
+    """Map a ranked issue dict to the contract Gap model."""
+    impact = item.get("impact", {}) or {}
+    screenshot_path = item.get("screenshot_path", "") or ""
+    screenshot_url = ""
+    if screenshot_path:
+        basename = os.path.basename(screenshot_path)
+        screenshot_url = f"/files/scans/{scan_id}/{basename}"
+
+    return Gap(
+        issue_id=item.get("issue_id", "unknown"),
+        title=item.get("title", ""),
+        category=item.get("category", "unknown"),
+        severity=item.get("severity", "unknown"),
+        source=item.get("source", "rule"),
+        confidence=float(item.get("confidence", 1.0) or 1.0),
+        evidence=item.get("evidence", ""),
+        screenshot_url=screenshot_url,
+        fixable_by_agent=bool(item.get("fixable_by_agent", False)),
+        description=item.get("description", ""),
+        impact=Impact(
+            issue_id=item.get("issue_id", "unknown"),
+            score=int(impact.get("score", 0)),
+            rank=int(impact.get("rank", 0)),
+            rationale=impact.get("rationale", ""),
+            assumption=impact.get("assumption", ""),
+            assumption_source=impact.get("assumption_source", ""),
+        ),
+    )
 
 
 def _build_failed_record(
@@ -68,17 +147,23 @@ def _build_failed_record(
     return {
         "scan_id": scan_id,
         "store_url": store_url,
+        "scanned_at": datetime.now(tz=timezone.utc).isoformat(),
         "status": "failed",
         "message": message,
-        "gaps": [],
+        "issues": [],
         "health_score": None,
+        "health_label": "",
+        "issue_counts": {"high": 0, "medium": 0, "low": 0},
+        "paypal_sdk_version": "none",
+        "pages": [],
         "warnings": warnings,
+        "fix": None,
+        "verification": None,
     }
 
 
 def run_scan(request: ScanRequest) -> ScanResponse:
-    """
-    Run the full audit pipeline for one store URL.
+    """Run the full audit pipeline for one store URL.
 
     Args:
         request: The validated scan request from the frontend.
@@ -89,11 +174,13 @@ def run_scan(request: ScanRequest) -> ScanResponse:
         module raises. Internal exception details and secrets are never
         exposed in the response.
     """
-    scan_id = str(uuid.uuid4())
+    scan_id = _scan_id()
 
     try:
         # Step 1: walk the store's checkout and collect raw data.
-        config = replace(BrowserConfig.from_env(), screenshots_dir=str(SCANS_DIR / scan_id))
+        # Save screenshots under outputs/scans/<scan_id>/, which the backend serves at /files/scans/...
+        # (the page and issue screenshot_url values below point there).
+        config = replace(BrowserConfig.from_env(), screenshots_dir=str(Path("outputs") / "scans" / scan_id))
         scan_data = scan_store(request.store_url, include_mobile=request.include_mobile, config=config)
 
         # Validate scanner output explicitly.
@@ -139,29 +226,26 @@ def run_scan(request: ScanRequest) -> ScanResponse:
         computed_health_score = health_score(ranked_gaps)
 
         # Step 5: map ranked issues into the Gap schema, preserving all useful
-        # issue information additively. description and evidence are kept
-        # separate; raw evidence is never copied into description.
+        # issue information additively.
         gap_models = []
         for item in ranked_gaps:
-            impact = item.get("impact", {}) or {}
-            score = impact.get("score", 0)
-            assumption = impact.get("assumption", "")
-            estimated = f"Score {score}/100 - {assumption}".strip(" -")
-            gap_models.append(
-                Gap(
-                    gap_id=item.get("issue_id", "unknown"),
-                    title=item.get("title", ""),
-                    severity=item.get("severity", "unknown"),
-                    description=item.get("description", ""),
-                    estimated_impact=estimated,
-                    impact=impact,
-                    evidence=item.get("evidence", ""),
-                    category=item.get("category", ""),
-                    confidence=item.get("confidence", 1.0),
-                    screenshot_path=item.get("screenshot_path", ""),
-                    fixable_by_agent=item.get("fixable_by_agent", False),
-                )
-            )
+            gap_models.append(_map_issue_to_contract(item, scan_id))
+
+        # Step 6: map scanner pages to contract page format.
+        contract_pages = [_map_page_to_contract(page, scan_id) for page in pages]
+
+        # Step 7: compute derived fields.
+        computed_health_score = health_score(ranked_gaps)
+        computed_label = _health_label(computed_health_score)
+        counts = _issue_counts(ranked_gaps)
+        detected_sdk = scan_data.get("detected_sdk_version", "none") or "none"
+        if detected_sdk == "unknown":
+            detected_sdk = "none"
+
+        # Pass through scanner's status ("completed", "partial", or "failed").
+        scan_status = scan_data.get("status", "completed")
+        if scan_status not in ("completed", "partial", "failed"):
+            scan_status = "completed"
 
         message = (
             f"Scan completed. Found {len(gap_models)} issue(s). "
@@ -171,14 +255,18 @@ def run_scan(request: ScanRequest) -> ScanResponse:
         record = {
             "scan_id": scan_id,
             "store_url": request.store_url,
-            "status": "completed",
+            "scanned_at": datetime.now(tz=timezone.utc).isoformat(),
+            "status": scan_status,
             "message": message,
-            "gaps": [g.model_dump() for g in gap_models],
+            "paypal_sdk_version": detected_sdk,
             "health_score": computed_health_score,
+            "health_label": computed_label,
+            "issue_counts": counts,
+            "issues": [g.model_dump() for g in gap_models],
+            "pages": contract_pages,
             "warnings": warnings,
-            "pages": _page_summaries(pages),
-            "paypal_sdk_version": {"unknown": "none", "": "none"}.get(
-                str(scan_data.get("detected_sdk_version", "")), str(scan_data.get("detected_sdk_version"))),
+            "fix": None,
+            "verification": None,
         }
         _reports[scan_id] = record
         return ScanResponse(**record)
@@ -210,8 +298,7 @@ def run_scan(request: ScanRequest) -> ScanResponse:
 
 
 def get_report(scan_id: str) -> dict:
-    """
-    Return a saved report by its ID.
+    """Return a saved report by its ID.
 
     Args:
         scan_id: The scan ID returned by run_scan.

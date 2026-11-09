@@ -187,4 +187,3 @@ def get_llm_client() -> BaseLLMAdapter:
 
     # Default fallback
     return DeterministicFallbackAdapter()
-

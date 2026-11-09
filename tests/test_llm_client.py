@@ -50,4 +50,3 @@ def test_factory_returns_client():
     """Verify get_llm_client returns a working adapter."""
     client = get_llm_client()
     assert client.is_available() is True
-
