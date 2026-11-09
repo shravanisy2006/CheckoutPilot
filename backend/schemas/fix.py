@@ -1,46 +1,19 @@
-"""Request and response models for the fix API (FIX step).
-
-Follows the API contract in docs/api_contract.md.
-"""
+"""Request model for POST /api/fix (see docs/api_contract.md, section 2)."""
 
 from pydantic import BaseModel, Field
 
 
+DEFAULT_FIXABLE = ["sdk_outdated", "no_paypal_on_cart", "button_below_fold_mobile"]
+
+
 class FixRequest(BaseModel):
-    """What the frontend sends to start a fix."""
+    """Which store to upgrade and which issues to fix.
 
-    scan_id: str = Field(..., examples=["scan_20261108_132000_ab12"])
-    issue_ids: list[str] = Field(..., examples=[["sdk_outdated", "no_paypal_on_cart"]])
+    ``scan_id`` (from POST /api/scan) picks the store that was scanned; or name it with
+    ``store`` ("legacy"). The code agent only patches stores whose code we have (our demo
+    stores); for a real merchant it would work on their repository instead.
+    """
 
-
-class FixExplanation(BaseModel):
-    """Explanation of one fix."""
-
-    issue_id: str
-    what_changed: str
-    files: list[str]
-
-
-class FixFile(BaseModel):
-    """One file changed by the fix."""
-
-    path: str
-    change_type: str  # "modified", "added", "deleted"
-    diff: str  # unified diff text
-    lines_added: int
-    lines_removed: int
-
-
-class FixResponse(BaseModel):
-    """What the backend returns after a fix."""
-
-    fix_id: str
-    scan_id: str
-    status: str  # "proposed", "verified", "approved", "rejected"
-    issue_ids: list[str]
-    summary: str
-    explanation: list[FixExplanation] = Field(default_factory=list)
-    files: list[FixFile] = Field(default_factory=list)
-    branch: str = ""
-    pr_url: str = ""
-    patched_store_dir: str = ""
+    scan_id: str | None = Field(None, examples=[None])
+    store: str | None = Field(None, examples=["legacy"])
+    issue_ids: list[str] = Field(default_factory=lambda: list(DEFAULT_FIXABLE), examples=[DEFAULT_FIXABLE])

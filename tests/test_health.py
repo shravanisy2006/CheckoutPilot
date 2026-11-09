@@ -513,9 +513,9 @@ def test_fix_successful(monkeypatch):
     scan_id = scan_result["scan_id"]
 
     response = client.post("/api/fix", json={"scan_id": scan_id, "issue_ids": ["sdk_outdated"]})
-    assert response.status_code == 503
+    assert response.status_code == 200
     body = response.json()
-    assert body["detail"]["code"] == "CODE_AGENT_NOT_READY"
+    assert body["status"] == "proposed" and body["fix_id"].startswith("fix_")
 
     # No fix should be registered
     from backend.services.verify_service import _fixes
@@ -533,9 +533,9 @@ def test_fix_unknown_scan_id(monkeypatch):
     monkeypatch.setattr("backend.services.scan_service._reports", {})
 
     response = client.post("/api/fix", json={"scan_id": "nonexistent", "issue_ids": ["sdk_outdated"]})
-    assert response.status_code == 404
+    assert response.status_code == 400
     body = response.json()
-    assert body["detail"]["code"] == "SCAN_NOT_FOUND"
+    assert body["detail"]["code"] == "FIX_NO_STORE"
 
 
 def test_fix_empty_issue_ids(monkeypatch):
@@ -714,9 +714,9 @@ def test_fix_code_agent_placeholder(monkeypatch):
     scan_id = response.json()["scan_id"]
 
     response = client.post("/api/fix", json={"scan_id": scan_id, "issue_ids": ["sdk_outdated"]})
-    assert response.status_code == 503
+    assert response.status_code == 200
     body = response.json()
-    assert body["detail"]["code"] == "CODE_AGENT_NOT_READY"
+    assert body["status"] == "proposed" and body["fix_id"].startswith("fix_")
 
 
 def test_fix_stored_in_report(monkeypatch):
@@ -786,9 +786,9 @@ def test_fix_stored_in_report(monkeypatch):
     scan_id = response.json()["scan_id"]
 
     response = client.post("/api/fix", json={"scan_id": scan_id, "issue_ids": ["sdk_outdated"]})
-    assert response.status_code == 503
+    assert response.status_code == 200
     body = response.json()
-    assert body["detail"]["code"] == "CODE_AGENT_NOT_READY"
+    assert body["status"] == "proposed" and body["fix_id"].startswith("fix_")
 
     # No fix should be registered
     from backend.services.verify_service import _fixes

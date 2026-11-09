@@ -1,155 +1,94 @@
-"""Fix service: connects the backend API to the code agent module (FIX step).
+"""Fix service: the FIX step. POST /api/fix -> code agent writes the upgrade on a COPY of the store.
 
-POST /api/fix -> run_fix() -> code_agent.create_upgrade_plan() ->
-code_agent.generate_upgrade() -> fix result stored in the scan report.
+The original store is never edited: the copy goes to outputs/patched/<fix_id>/. Every fix is
+registered with the verify service, so POST /api/verify {"fix_id": ...} can then make a real
+PayPal Sandbox payment on the original and on the patched copy.
 """
 
+import threading
 import uuid
-from datetime import datetime, timezone
-from pathlib import Path
+from typing import Any
+from urllib.parse import urlparse
 
-from backend.schemas.fix import FixRequest, FixResponse
+from backend.schemas.fix import FixRequest
 from backend.schemas.models import ModuleError
-from backend.services.scan_service import get_report
-from backend.services.verify_service import register_fix
-from code_agent.upgrade_agent import create_upgrade_plan, generate_upgrade
+from backend.services import scan_service, verify_service
+from demo_stores.serve import KNOWN_STORES, resolve_store
 
-# Error codes (the API route maps them to HTTP status codes).
+FIX_NO_STORE = "FIX_NO_STORE"
+FIX_BUSY = "FIX_BUSY"
+FIX_FAILED = "FIX_FAILED"
 SCAN_NOT_FOUND = "SCAN_NOT_FOUND"
 NO_ISSUES_SELECTED = "NO_ISSUES_SELECTED"
 INVALID_ISSUE_IDS = "INVALID_ISSUE_IDS"
-CODE_AGENT_NOT_READY = "CODE_AGENT_NOT_READY"
-STORE_NOT_SUPPORTED = "STORE_NOT_SUPPORTED"
 
-# Mapping from store URLs scanned by the backend to their local repository
-# directories.  The code agent needs a filesystem path, not an HTTP URL.
-STORE_URL_TO_REPO_PATH: dict[str, Path] = {
-    "http://localhost:8101": Path("demo_stores/legacy_store").resolve(),
-    "http://localhost:8102": Path("demo_stores/upgraded_store").resolve(),
-}
-
-# fix_id -> {"store": str, "patched_store": str, "scan_id": str}
 _fixes: dict[str, dict] = {}
+_lock = threading.Lock()
 
 
-def _fix_id() -> str:
-    """Generate a fix ID, e.g. fix_20261108_132000_ab12."""
-    now = datetime.now(tz=timezone.utc)
-    ts = now.strftime("%Y%m%d_%H%M%S")
-    suffix = uuid.uuid4().hex[:4]
-    return f"fix_{ts}_{suffix}"
+def _store_from_scan(scan_id: str) -> str:
+    report = scan_service.get_report(scan_id)
+    if report.get("status") == "not_found":
+        raise ModuleError(FIX_NO_STORE, f"No scan with id {scan_id}. Run a scan first, or send \"store\".")
+    url = urlparse(report.get("store_url", ""))
+    for name, (_, port) in KNOWN_STORES.items():
+        if url.hostname in ("localhost", "127.0.0.1") and url.port == port:
+            return name
+    raise ModuleError(FIX_NO_STORE, "The code agent can only patch stores whose code we have (the demo "
+                                    "stores). For a real store it would work on the merchant's repository.")
 
 
-def resolve_repo_path(store_url: str) -> Path:
-    """Resolve a store URL to its local repository directory.
-
-    Args:
-        store_url: The store URL as scanned (e.g. "http://localhost:8101").
-
-    Returns:
-        A Path to the local demo store directory.
-
-    Raises:
-        ModuleError: STORE_NOT_SUPPORTED if the URL is not mapped or the
-            directory does not exist.
-    """
-    repo_path = STORE_URL_TO_REPO_PATH.get(store_url)
-    if repo_path is None:
-        raise ModuleError(STORE_NOT_SUPPORTED, f"Store URL not supported: {store_url}")
-    if not repo_path.is_dir() or not (repo_path / "app.py").is_file():
-        raise ModuleError(
-            STORE_NOT_SUPPORTED,
-            f"Store repository not found or missing app.py: {repo_path}",
-        )
-    return repo_path
+def create_upgrade_plan(repo_path: str, gaps: list | None = None) -> list[dict[str, Any]]:
+    """Stub: code agent placeholder. Not used by run_fix() which uses build_fix() instead."""
+    return []
 
 
-def run_fix(request: FixRequest) -> FixResponse:
-    """Run the fix pipeline for one store scan.
+def generate_upgrade(repo_path: str, plan: list | None = None) -> dict[str, Any]:
+    """Stub: code agent placeholder. Not used by run_fix() which uses build_fix() instead."""
+    return {"branch": "", "files_changed": [], "pull_request_url": ""}
 
-    Args:
-        request: The validated fix request from the frontend.
 
-    Returns:
-        A FixResponse containing the fix result, or raises ModuleError
-        if the scan is not found, no issues are selected, the issue IDs
-        are invalid, the store URL is unsupported, or the code agent
-        is not ready.
+def _validate_issue_ids(scan_id: str, issue_ids: list[str]) -> None:
+    """Validate that issue_ids are among the scan's known issues."""
+    report = scan_service.get_report(scan_id)
+    if report.get("status") == "not_found":
+        raise ModuleError(FIX_NO_STORE, f"No scan with id {scan_id}.")
+    report_issue_ids = {i.issue_id if hasattr(i, 'issue_id') else i.get("issue_id", "") for i in report.get("issues", [])}
+    invalid = [i for i in issue_ids if i not in report_issue_ids]
+    if invalid:
+        raise ModuleError(INVALID_ISSUE_IDS, f"Invalid issue ID(s): {', '.join(invalid)}")
 
-    Raises:
-        ModuleError: If the scan is not found, no issues are selected,
-            invalid issue IDs are provided, the store URL is unsupported,
-            the patched store directory does not exist, or the code agent
-            is not ready.
-    """
-    # Step 1: Get the scan report.
-    scan_report = get_report(request.scan_id)
-    if scan_report.get("status") == "not_found":
-        raise ModuleError(SCAN_NOT_FOUND, f"No scan with id {request.scan_id}")
 
-    # Step 2: Validate that issue_ids exist in the scan.
-    scan_issues = scan_report.get("issues", [])
-    scan_issue_ids = {issue["issue_id"] for issue in scan_issues}
-    requested_ids = set(request.issue_ids)
-    if not requested_ids:
-        raise ModuleError(NO_ISSUES_SELECTED, "No issue_ids provided")
-    if not requested_ids.issubset(scan_issue_ids):
-        invalid = requested_ids - scan_issue_ids
-        raise ModuleError(INVALID_ISSUE_IDS, f"Unknown issue_id(s): {invalid}")
+def run_fix(request: FixRequest) -> dict:
+    if not request.issue_ids:
+        raise ModuleError(NO_ISSUES_SELECTED, "Choose at least one issue to fix.")
+    if request.scan_id:
+        _validate_issue_ids(request.scan_id, request.issue_ids)
+    store = request.store or (_store_from_scan(request.scan_id) if request.scan_id else "legacy")
+    if store not in KNOWN_STORES:
+        raise ModuleError(FIX_NO_STORE, f"Unknown store {store!r}. Use one of: {', '.join(KNOWN_STORES)}.")
+    if not _lock.acquire(blocking=False):
+        raise ModuleError(FIX_BUSY, "A fix is already being written. Try again in a moment.")
+    try:
+        from code_agent.fix_builder import build_fix
 
-    # Step 3: Get selected issues for the code agent.
-    selected_issues = [i for i in scan_issues if i["issue_id"] in requested_ids]
+        folder, _ = resolve_store(store)
+        fix = build_fix(folder, request.issue_ids, fix_id=f"fix_{uuid.uuid4().hex[:10]}",
+                        scan_id=request.scan_id or "")
+    except (OSError, ValueError) as error:
+        raise ModuleError(FIX_FAILED, f"The code agent could not write the fix: {error}") from error
+    finally:
+        _lock.release()
 
-    # Step 4: Resolve the store URL to a local repository path.
-    repo_path = resolve_repo_path(scan_report.get("store_url", ""))
+    _fixes[fix["fix_id"]] = fix
+    if fix["status"] != "proposed":
+        problems = "; ".join(fix["errors"]) or "no files were changed"
+        raise ModuleError(FIX_FAILED, f"The upgrade did not pass its checks ({problems}). "
+                                      f"Details: GET /api/fix/{fix['fix_id']}")
+    verify_service.register_fix(fix["fix_id"], store=store, patched_store=fix["patched_store_dir"],
+                                scan_id=request.scan_id)
+    return fix
 
-    # Step 5: Call the code agent to create an upgrade plan.
-    plan = create_upgrade_plan(str(repo_path), selected_issues)
-    if not plan:
-        raise ModuleError(CODE_AGENT_NOT_READY, "Code agent did not produce an upgrade plan")
 
-    # Step 6: Call the code agent to generate the upgrade.
-    result = generate_upgrade(str(repo_path), plan)
-    if not result.get("files_changed") or not result.get("branch"):
-        raise ModuleError(CODE_AGENT_NOT_READY, "Code agent did not produce a valid upgrade")
-
-    # Step 7: Generate a fix ID and validate the patched store directory exists.
-    fix_id = _fix_id()
-    patched_store_dir = f"outputs/patched/{fix_id}"
-    patched_path = Path(patched_store_dir)
-    if not patched_path.is_dir() or not (patched_path / "app.py").is_file():
-        raise ModuleError(
-            CODE_AGENT_NOT_READY,
-            "Patched store directory does not exist or is incomplete",
-        )
-
-    # Step 8: Register the fix with scan_id.
-    register_fix(fix_id, scan_report["store_url"], patched_store_dir, request.scan_id)
-
-    # Step 9: Store the fix result in the scan report.
-    scan_report["fix"] = {
-        "fix_id": fix_id,
-        "scan_id": request.scan_id,
-        "status": "proposed",
-        "issue_ids": list(request.issue_ids),
-        "summary": result.get("summary", ""),
-        "explanation": result.get("explanation", []),
-        "files": result.get("files", []),
-        "branch": result.get("branch", ""),
-        "pr_url": result.get("pr_url", ""),
-        "patched_store_dir": patched_store_dir,
-    }
-
-    # Step 10: Return the FixResponse.
-    return FixResponse(
-        fix_id=fix_id,
-        scan_id=request.scan_id,
-        status="proposed",
-        issue_ids=list(request.issue_ids),
-        summary=result.get("summary", ""),
-        explanation=result.get("explanation", []),
-        files=result.get("files", []),
-        branch=result.get("branch", ""),
-        pr_url=result.get("pr_url", ""),
-        patched_store_dir=patched_store_dir,
-    )
+def get_fix(fix_id: str) -> dict | None:
+    return _fixes.get(fix_id)

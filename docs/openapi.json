@@ -1,0 +1,667 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "CheckoutPilot API",
+    "description": "\nCheckoutPilot finds what a store's PayPal checkout is missing, writes the upgrade,\nand proves it works with a real PayPal **Sandbox** payment before the merchant approves.\n\n* **Scan** (`POST /api/scan`): FIND and RANK issues from a store URL.\n* **Verify** (`POST /api/verify`): PROVE a checkout works with real PayPal Sandbox payments.\n* **Reports** (`GET /api/reports/{scan_id}`): read a saved scan.\n* Screenshots are served under `/files/...`.\n\nSandbox only: the PayPal client refuses live API URLs. Full field reference: `docs/api_contract.md`.\n",
+    "contact": {
+      "name": "CheckoutPilot team",
+      "url": "https://github.com/shravanisy2006/CheckoutPilot"
+    },
+    "license": {
+      "name": "MIT",
+      "url": "https://github.com/shravanisy2006/CheckoutPilot/blob/main/LICENSE"
+    },
+    "version": "0.1.0"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8000",
+      "description": "Local CheckoutPilot backend"
+    }
+  ],
+  "paths": {
+    "/api/health": {
+      "get": {
+        "tags": [
+          "Health"
+        ],
+        "summary": "Health Check",
+        "description": "Return a simple status message.",
+        "operationId": "health_check_api_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Health Check Api Health Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/scan": {
+      "post": {
+        "tags": [
+          "Scan"
+        ],
+        "summary": "Start Scan",
+        "description": "Scan a store's PayPal checkout (FIND step).\n\nOpens the store in a real browser (product, cart and checkout pages, desktop and\nmobile), checks the PayPal SDK version and button placement with rule checks and\nan AI vision model, and returns the issues ranked by impact plus a 0-100 health\nscore. Takes about 10-60 seconds. Example body: `{\"store_url\": \"http://localhost:8101\"}`.",
+        "operationId": "start_scan_api_scan_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScanRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScanResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/reports/{scan_id}": {
+      "get": {
+        "tags": [
+          "Reports"
+        ],
+        "summary": "Read Report",
+        "description": "Return the report for one scan.\n\nReturns HTTP 404 when the requested scan_id does not exist.",
+        "operationId": "read_report_api_reports__scan_id__get",
+        "parameters": [
+          {
+            "name": "scan_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Scan Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Read Report Api Reports  Scan Id  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/fix": {
+      "post": {
+        "tags": [
+          "Fix"
+        ],
+        "summary": "Fix",
+        "description": "Write the upgrade (PayPal SDK v5 -> v6, cart button, mobile layout) on a copy of the store.\n\nExample body: `{\"store\": \"legacy\"}` or `{\"scan_id\": \"<id from /api/scan>\", \"issue_ids\": [...]}`.\nThe original store is never changed; the patched copy is in `patched_store_dir`.\nResponse shape: docs/sample_result.json -> \"fix\", plus `generated_by` (\"ai+template\" or \"template\").\nThen call POST /api/verify with `{\"fix_id\": ...}` to prove it with a Sandbox payment.",
+        "operationId": "fix_api_fix_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FixRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Fix Api Fix Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/fix/{fix_id}": {
+      "get": {
+        "tags": [
+          "Fix"
+        ],
+        "summary": "Get Fix",
+        "description": "Return an earlier fix (kept in memory until the backend restarts).",
+        "operationId": "get_fix_api_fix__fix_id__get",
+        "parameters": [
+          {
+            "name": "fix_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Fix Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Fix Api Fix  Fix Id  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/verify": {
+      "post": {
+        "tags": [
+          "Verify"
+        ],
+        "summary": "Verify",
+        "description": "Make a real PayPal Sandbox test purchase on the \"before\" and \"after\" stores and compare them.\n\nExample body (works today): `{\"before_store\": \"legacy\", \"after_store\": \"upgraded\"}`.\nTakes about 1-2 minutes. Response shape: docs/sample_result.json -> \"verify\".\nErrors: `{\"detail\": {\"code\": \"...\", \"message\": \"...\"}}`.",
+        "operationId": "verify_api_verify_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Verify Api Verify Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/verify/{verification_id}": {
+      "get": {
+        "tags": [
+          "Verify"
+        ],
+        "summary": "Get Verification",
+        "description": "Return an earlier verification result (kept in memory until the backend restarts).",
+        "operationId": "get_verification_api_verify__verification_id__get",
+        "parameters": [
+          {
+            "name": "verification_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Verification Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Verification Api Verify  Verification Id  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/": {
+      "get": {
+        "summary": "Root",
+        "description": "Friendly message at the root URL.",
+        "operationId": "root__get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Root  Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "FixRequest": {
+        "properties": {
+          "scan_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scan Id",
+            "examples": [
+              null
+            ]
+          },
+          "store": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Store",
+            "examples": [
+              "legacy"
+            ]
+          },
+          "issue_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Issue Ids",
+            "examples": [
+              [
+                "sdk_outdated",
+                "no_paypal_on_cart",
+                "button_below_fold_mobile"
+              ]
+            ]
+          }
+        },
+        "type": "object",
+        "title": "FixRequest",
+        "description": "Which store to upgrade and which issues to fix.\n\n``scan_id`` (from POST /api/scan) picks the store that was scanned; or name it with\n``store`` (\"legacy\"). The code agent only patches stores whose code we have (our demo\nstores); for a real merchant it would work on their repository instead."
+      },
+      "Gap": {
+        "properties": {
+          "gap_id": {
+            "type": "string",
+            "title": "Gap Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "severity": {
+            "type": "string",
+            "title": "Severity",
+            "default": "unknown"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description",
+            "default": ""
+          },
+          "estimated_impact": {
+            "type": "string",
+            "title": "Estimated Impact",
+            "default": ""
+          },
+          "impact": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Impact"
+          },
+          "evidence": {
+            "type": "string",
+            "title": "Evidence",
+            "default": ""
+          },
+          "category": {
+            "type": "string",
+            "title": "Category",
+            "default": ""
+          },
+          "confidence": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Confidence",
+            "default": 1.0
+          },
+          "screenshot_path": {
+            "type": "string",
+            "title": "Screenshot Path",
+            "default": ""
+          },
+          "fixable_by_agent": {
+            "type": "boolean",
+            "title": "Fixable By Agent",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "gap_id",
+          "title"
+        ],
+        "title": "Gap",
+        "description": "One checkout problem found in a store."
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "ScanRequest": {
+        "properties": {
+          "store_url": {
+            "type": "string",
+            "title": "Store Url",
+            "examples": [
+              "https://demo-store.example.com"
+            ]
+          },
+          "include_mobile": {
+            "type": "boolean",
+            "title": "Include Mobile",
+            "description": "Also scan a mobile-sized screen",
+            "default": true
+          }
+        },
+        "type": "object",
+        "required": [
+          "store_url"
+        ],
+        "title": "ScanRequest",
+        "description": "What the frontend sends to start a scan."
+      },
+      "ScanResponse": {
+        "properties": {
+          "store_url": {
+            "type": "string",
+            "title": "Store Url"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "gaps": {
+            "items": {
+              "$ref": "#/components/schemas/Gap"
+            },
+            "type": "array",
+            "title": "Gaps"
+          },
+          "scan_id": {
+            "type": "string",
+            "title": "Scan Id",
+            "default": ""
+          },
+          "health_score": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Health Score"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Warnings"
+          }
+        },
+        "type": "object",
+        "required": [
+          "store_url",
+          "status",
+          "message"
+        ],
+        "title": "ScanResponse",
+        "description": "What the backend returns after a scan."
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      },
+      "VerifyRequest": {
+        "properties": {
+          "fix_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fix Id",
+            "examples": [
+              null
+            ]
+          },
+          "before_store": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Before Store",
+            "examples": [
+              "legacy"
+            ]
+          },
+          "after_store": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "After Store",
+            "examples": [
+              "upgraded"
+            ]
+          },
+          "page": {
+            "type": "string",
+            "enum": [
+              "checkout",
+              "cart"
+            ],
+            "title": "Page",
+            "description": "Where to click PayPal. 'cart' works on the upgraded store only.",
+            "default": "checkout"
+          }
+        },
+        "type": "object",
+        "title": "VerifyRequest",
+        "description": "What to prove with a real PayPal Sandbox payment.\n\nSend ONE of:\n  - ``fix_id``: verify the original store and the code agent's patched copy\n    (works once POST /api/fix exists and has registered the fix), or\n  - ``after_store`` (and optionally ``before_store``): any two stores to\n    compare, e.g. \"legacy\" and \"upgraded\".\n\nA store can be a demo-store name (\"legacy\", \"upgraded\"), a store folder\n(e.g. \"outputs/patched/fix_123\"), or a local URL (\"http://localhost:8101\")."
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "Health",
+      "description": "Check that the API is running."
+    },
+    {
+      "name": "Scan",
+      "description": "FIND: audit a store's PayPal checkout and rank the issues."
+    },
+    {
+      "name": "Verify",
+      "description": "PROVE: real PayPal Sandbox test purchases before and after an upgrade."
+    },
+    {
+      "name": "Reports",
+      "description": "Saved scan results."
+    }
+  ]
+}

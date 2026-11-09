@@ -76,6 +76,7 @@ def _paypal_rendered(page, timeout: float) -> bool:
 
 def capture(out_dir: Path = OUT_DIR, paypal_wait: float = PAYPAL_WAIT_SECONDS) -> dict:
     """Take all screenshots and write eval_cases.json. Returns a summary dict."""
+    from playwright.sync_api import TimeoutError as PlaywrightTimeout
     from playwright.sync_api import sync_playwright
 
     from demo_stores.serve import resolve_store, start_store, stop_store
@@ -98,7 +99,12 @@ def capture(out_dir: Path = OUT_DIR, paypal_wait: float = PAYPAL_WAIT_SECONDS) -
                 url = _store_url(store)
                 page.goto(url + "/", wait_until="domcontentloaded")
                 page.click("#add-to-cart")
-                page.goto(f"{url}/{step}", wait_until="networkidle")
+                page.goto(f"{url}/{step}", wait_until="load")
+                try:
+                    # PayPal's scripts can keep the network busy for a long time; don't wait forever.
+                    page.wait_for_load_state("networkidle", timeout=5000)
+                except PlaywrightTimeout:
+                    pass
                 image = f"{store}_{step}_{viewport}.png"
                 if needs_paypal and not _paypal_rendered(page, paypal_wait):
                     skipped.append(f"{image}: PayPal button did not load (check internet / PAYPAL_CLIENT_ID)")
