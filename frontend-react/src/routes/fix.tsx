@@ -29,7 +29,7 @@ export const Route = createFileRoute("/fix")({
 });
 
 function FixPage() {
-  const { fix, scan, startFix, startVerify, selected } = useCheckout();
+  const { fix, scan, startFix, startVerify, selected, verify } = useCheckout();
   const navigate = useNavigate();
   const [active, setActive] = useState(0);
   const data = fix.data;
@@ -112,12 +112,15 @@ function FixPage() {
                 )}
                 <button
                   className="btn-primary"
-                  onClick={async () => {
-                    await startVerify();
+                  disabled={verify.phase === "running"}
+                  onClick={() => {
+                    // Go to the Proof page straight away; it shows the progress while the payment runs.
+                    void startVerify();
                     navigate({ to: "/proof" });
                   }}
                 >
-                  <ShieldCheck className="h-4 w-4" /> Verify in Sandbox
+                  <ShieldCheck className="h-4 w-4" />{" "}
+                  {verify.phase === "running" ? "Verification running..." : "Verify in Sandbox"}
                 </button>
               </div>
             </div>

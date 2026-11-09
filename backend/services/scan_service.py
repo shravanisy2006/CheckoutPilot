@@ -15,12 +15,15 @@ This is acceptable for the current hackathon MVP.
 import logging
 import os
 import uuid
+from dataclasses import replace
 from datetime import datetime, timezone
+from pathlib import Path
 
 from ai_engine.checkout_analyzer import analyze_checkout_detailed
 from backend.schemas.models import ModuleError
 from backend.schemas.scan import Gap, Impact, ScanRequest, ScanResponse
 from impact_ranker.ranker import health_score, rank_issues
+from scanner.browser import BrowserConfig
 from scanner.checkout_scanner import scan_store
 from scanner.exceptions import InvalidURLError
 
@@ -175,7 +178,10 @@ def run_scan(request: ScanRequest) -> ScanResponse:
 
     try:
         # Step 1: walk the store's checkout and collect raw data.
-        scan_data = scan_store(request.store_url, include_mobile=request.include_mobile)
+        # Save screenshots under outputs/scans/<scan_id>/, which the backend serves at /files/scans/...
+        # (the page and issue screenshot_url values below point there).
+        config = replace(BrowserConfig.from_env(), screenshots_dir=str(Path("outputs") / "scans" / scan_id))
+        scan_data = scan_store(request.store_url, include_mobile=request.include_mobile, config=config)
 
         # Validate scanner output explicitly.
         if not isinstance(scan_data, dict):

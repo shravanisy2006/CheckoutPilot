@@ -27,7 +27,7 @@ def test_scan_zero_pages_returns_failed(monkeypatch):
     warning explains no checkout page data was collected."""
     monkeypatch.setattr("backend.services.scan_service._reports", {})
 
-    def fake_scan_store(url, include_mobile=True):
+    def fake_scan_store(url, include_mobile=True, **kwargs):
         return {"store_url": url, "pages": []}
 
     monkeypatch.setattr("backend.services.scan_service.scan_store", fake_scan_store)
@@ -48,7 +48,7 @@ def test_scan_store_returns_none(monkeypatch):
     """Scanner returns None -> failed, safe message, no exception details."""
     monkeypatch.setattr("backend.services.scan_service._reports", {})
 
-    def fake_scan_store(url, include_mobile=True):
+    def fake_scan_store(url, include_mobile=True, **kwargs):
         return None
 
     monkeypatch.setattr("backend.services.scan_service.scan_store", fake_scan_store)
@@ -66,7 +66,7 @@ def test_scan_store_returns_non_dict(monkeypatch):
     """Scanner returns a string -> failed, safe message."""
     monkeypatch.setattr("backend.services.scan_service._reports", {})
 
-    def fake_scan_store(url, include_mobile=True):
+    def fake_scan_store(url, include_mobile=True, **kwargs):
         return "not a dictionary"
 
     monkeypatch.setattr("backend.services.scan_service.scan_store", fake_scan_store)
@@ -84,7 +84,7 @@ def test_scan_store_malformed_pages(monkeypatch):
     """Scanner returns pages that is not a list -> failed, safe message."""
     monkeypatch.setattr("backend.services.scan_service._reports", {})
 
-    def fake_scan_store(url, include_mobile=True):
+    def fake_scan_store(url, include_mobile=True, **kwargs):
         return {"store_url": url, "pages": "not-a-list"}
 
     monkeypatch.setattr("backend.services.scan_service.scan_store", fake_scan_store)
@@ -101,7 +101,7 @@ def test_scan_store_malformed_pages(monkeypatch):
 def test_scan_uses_detailed_analysis(monkeypatch):
     """analyze_checkout_detailed is used; issues and warnings read explicitly."""
 
-    def fake_scan_store(url, include_mobile=True):
+    def fake_scan_store(url, include_mobile=True, **kwargs):
         return {"store_url": url, "pages": [{"step": "cart", "viewport": "desktop", "success": True}]}
 
     def fake_analyze_checkout_detailed(scan_data):
@@ -161,7 +161,7 @@ def test_scan_uses_detailed_analysis(monkeypatch):
 def test_description_and_evidence_mapped_separately(monkeypatch):
     """description and evidence are separate fields; evidence not copied to description."""
 
-    def fake_scan_store(url, include_mobile=True):
+    def fake_scan_store(url, include_mobile=True, **kwargs):
         return {"store_url": url, "pages": [{"step": "cart", "viewport": "desktop", "success": True}]}
 
     def fake_analyze_checkout_detailed(scan_data):
@@ -220,7 +220,7 @@ def test_description_and_evidence_mapped_separately(monkeypatch):
 def test_scan_module_error(monkeypatch):
     """ModuleError from ai_engine -> failed, safe message, no stack trace."""
 
-    def fake_scan_store(url, include_mobile=True):
+    def fake_scan_store(url, include_mobile=True, **kwargs):
         return {"store_url": url, "pages": [{"step": "cart", "viewport": "desktop"}]}
 
     def fake_analyze_checkout_detailed(scan_data):
@@ -245,7 +245,7 @@ def test_scan_module_error(monkeypatch):
 def test_scan_unexpected_exception(monkeypatch):
     """Unexpected exception -> failed, generic message, no secret exposure."""
 
-    def fake_scan_store(url, include_mobile=True):
+    def fake_scan_store(url, include_mobile=True, **kwargs):
         raise RuntimeError("something broke")
 
     monkeypatch.setattr("backend.services.scan_service.scan_store", fake_scan_store)
@@ -273,7 +273,7 @@ def test_scan_invalid_url_private_ip(monkeypatch):
 
     monkeypatch.setattr("backend.services.scan_service._reports", {})
 
-    def fake_scan_store(url, include_mobile=True):
+    def fake_scan_store(url, include_mobile=True, **kwargs):
         raise InvalidURLError("Private or reserved hostname not allowed: '10.0.0.1'.")
 
     monkeypatch.setattr("backend.services.scan_service.scan_store", fake_scan_store)
@@ -294,7 +294,7 @@ def test_scan_invalid_url_malformed(monkeypatch):
 
     monkeypatch.setattr("backend.services.scan_service._reports", {})
 
-    def fake_scan_store(url, include_mobile=True):
+    def fake_scan_store(url, include_mobile=True, **kwargs):
         raise InvalidURLError("Unsupported scheme 'ftp' in 'ftp://files.example.com'.")
 
     monkeypatch.setattr("backend.services.scan_service.scan_store", fake_scan_store)
@@ -313,7 +313,7 @@ def test_get_report_existing(monkeypatch):
     """Retrieve a stored report by scan_id."""
     monkeypatch.setattr("backend.services.scan_service._reports", {})
 
-    def fake_scan_store(url, include_mobile=True):
+    def fake_scan_store(url, include_mobile=True, **kwargs):
         return {"store_url": url, "pages": []}
 
     monkeypatch.setattr("backend.services.scan_service.scan_store", fake_scan_store)
@@ -375,7 +375,7 @@ def test_scan_successful_with_fix_data(monkeypatch):
     """scan returns completed with gaps, ready for fix."""
     monkeypatch.setattr("backend.services.scan_service._reports", {})
 
-    def fake_scan_store(url, include_mobile=True):
+    def fake_scan_store(url, include_mobile=True, **kwargs):
         return {
             "store_url": url,
             "pages": [
@@ -442,7 +442,7 @@ def test_fix_successful(monkeypatch):
     """scan_id with valid issues -> CODE_AGENT_NOT_READY because placeholder code agent cannot create patched store."""
     monkeypatch.setattr("backend.services.scan_service._reports", {})
 
-    def fake_scan_store(url, include_mobile=True):
+    def fake_scan_store(url, include_mobile=True, **kwargs):
         return {
             "store_url": url,
             "pages": [
@@ -542,7 +542,7 @@ def test_fix_empty_issue_ids(monkeypatch):
     """Empty issue_ids -> 400."""
     monkeypatch.setattr("backend.services.scan_service._reports", {})
 
-    def fake_scan_store(url, include_mobile=True):
+    def fake_scan_store(url, include_mobile=True, **kwargs):
         return {"store_url": url, "pages": [{"step": "cart", "viewport": "desktop", "success": True}]}
 
     def fake_analyze_checkout_detailed(scan_data):
@@ -601,7 +601,7 @@ def test_fix_unknown_issue_id(monkeypatch):
     """Unknown issue_id -> 400."""
     monkeypatch.setattr("backend.services.scan_service._reports", {})
 
-    def fake_scan_store(url, include_mobile=True):
+    def fake_scan_store(url, include_mobile=True, **kwargs):
         return {"store_url": url, "pages": [{"step": "cart", "viewport": "desktop", "success": True}]}
 
     def fake_analyze_checkout_detailed(scan_data):
@@ -660,7 +660,7 @@ def test_fix_code_agent_placeholder(monkeypatch):
     """Code agent placeholder returns empty -> CODE_AGENT_NOT_READY."""
     monkeypatch.setattr("backend.services.scan_service._reports", {})
 
-    def fake_scan_store(url, include_mobile=True):
+    def fake_scan_store(url, include_mobile=True, **kwargs):
         return {"store_url": url, "pages": [{"step": "cart", "viewport": "desktop", "success": True}]}
 
     def fake_analyze_checkout_detailed(scan_data):
@@ -723,7 +723,7 @@ def test_fix_stored_in_report(monkeypatch):
     """Fix result stored in scan report."""
     monkeypatch.setattr("backend.services.scan_service._reports", {})
 
-    def fake_scan_store(url, include_mobile=True):
+    def fake_scan_store(url, include_mobile=True, **kwargs):
         return {"store_url": url, "pages": [{"step": "cart", "viewport": "desktop", "success": True, "paypal_elements": []}]}
 
     def fake_analyze_checkout_detailed(scan_data):

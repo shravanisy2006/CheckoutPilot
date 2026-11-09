@@ -21,6 +21,7 @@ from typing import Any, Optional
 
 from code_agent.agentic import AutonomousCodingAgent
 from code_agent.llm_client import DeterministicFallbackAdapter
+from code_agent.self_test import browser_check
 
 PATCHED_ROOT = Path("outputs/patched")
 BRANCH = "feature/paypal-checkout-upgrade"
@@ -29,6 +30,9 @@ TEXT_SUFFIXES = {".py", ".html", ".htm", ".js", ".ts", ".css", ".json", ".txt", 
 
 V6_MARKERS = ("web-sdk/v6", "createInstance", "<paypal-button")
 V5_MARKERS = ("paypal.com/sdk/js",)
+# v6 rejects v5 component names: "unrecognized component in createInstance: buttons"
+PLACEHOLDER = re.compile(r"\{\{([A-Z_]+)\}\}")
+V5_COMPONENT = re.compile(r"""components\s*:\s*\[[^\]]*["']buttons["']""")
 
 
 def _text_files(root: Path) -> dict[str, str]:
@@ -86,6 +90,20 @@ def _check_upgrade(before: dict[str, str], after: dict[str, str], issue_ids: lis
         lost = sorted(set(ID_PATTERN.findall(old)) - set(ID_PATTERN.findall(new)))
         if lost:
             problems.append(f"{path} lost element ids: " + ", ".join(lost))
+    for path, text in after.items():
+        if path.endswith((".js", ".html", ".ts")) and V5_COMPONENT.search(text):
+            problems.append(f'{path} asks the v6 SDK for the v5 component "buttons" (v6 needs "paypal-payments").')
+    for path, text in after.items():
+        if path.endswith(".html") and "<paypal-button" in text and "onPayPalWebSdkLoaded" not in text \
+                and "createInstance" not in text:
+            problems.append(f"{path} has a <paypal-button> but never loads and starts the v6 SDK.")
+    server_code = "\n".join(t for p, t in after.items() if p.endswith(".py"))
+    for path, text in after.items():
+        if not path.endswith(".html") or not server_code:
+            continue
+        for name in sorted(set(PLACEHOLDER.findall(text))):
+            if "{{" + name + "}}" not in server_code:
+                problems.append(f"{path} uses {{{{{name}}}}} but the server never fills it in.")
     if "no_paypal_on_cart" in issue_ids:
         carts = [t for p, t in after.items() if p.endswith(".html") and "cart" in Path(p).name.lower()]
         if carts and not any("<paypal-button" in t and "paypal-button-container" in t for t in carts):
@@ -134,9 +152,15 @@ def build_fix(store_dir: str | Path, issue_ids: list[str], fix_id: Optional[str]
         after = _text_files(target)
         files = _diff_files(before, after)
         problems = list(result.get("errors") or []) + _check_upgrade(before, after, issue_ids)
+        if files and not problems:
+            # Text checks passed: now really use the patched store in a browser (fake PayPal, no network).
+            problems = browser_check(target)
+            checks["browser"] = "skipped" if os.getenv("CODE_AGENT_BROWSER_CHECK", "true").lower() in (
+                "0", "false", "no") else ("failed" if problems else "passed")
         return agent, plan, files, problems
 
     warnings = []
+    checks = {"browser": "not run"}
     agent, plan, files, problems = attempt()
     if agent.last_plan_source == "ai" and (problems or not files):
         # The AI's plan did not pass the checks: redo it with the built-in template planner.
@@ -163,7 +187,10 @@ def build_fix(store_dir: str | Path, issue_ids: list[str], fix_id: Optional[str]
         "issue_ids": issue_ids,
         "summary": (f"Upgraded the PayPal checkout across {len(files)} file(s) "
                     f"({'AI plan + template' if generated_by == 'ai+template' else 'template plan'}): "
-                    + ", ".join(f["path"] for f in files)) if files else "No changes were needed or made.",
+                    + ", ".join(f["path"] for f in files)
+                    + (". Test purchase in a browser passed (simulated PayPal); next, prove it with a real "
+                       "Sandbox payment." if checks["browser"] == "passed" else "")) if files
+                   else "No changes were needed or made.",
         "explanation": explanation,
         "files": files,
         "branch": BRANCH,
@@ -173,4 +200,6 @@ def build_fix(store_dir: str | Path, issue_ids: list[str], fix_id: Optional[str]
         "generated_by": generated_by,
         "errors": problems,
         "warnings": warnings,
+        # "passed" = a purchase on the patched copy worked in a browser (fake PayPal SDK, no network).
+        "browser_check": checks["browser"],
     }

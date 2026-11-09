@@ -22,11 +22,11 @@ while the backend catches up. Tick items off here when they are merged.
 | `title`, `severity`, `category`, `confidence`, `evidence`, `fixable_by_agent`, `impact` | yes | ✅ sent | ✅ shown | — |
 | `health_score` | yes | ✅ sent | ✅ shown | — |
 | `source` (`rule` / `vision` / `rule+vision`) | yes | ❌ missing | shows "Found by: …" when present | Backend |
-| `paypal_sdk_version` | yes | ❌ missing | ready | Backend |
+| `paypal_sdk_version` | yes | ✅ sent | ready | — |
 | `health_label`, `issue_counts`, `scanned_at` | yes | ❌ missing | not required (dashboard computes them) | Backend (nice to have) |
-| `pages` with `screenshot_url` | yes | ❌ missing | shows screenshots when present | Backend |
+| `pages` with `screenshot_url` | yes | ✅ sent (`step`, `viewport`, `url`, `success`, `error`, `screenshot_url`; never the page HTML) | ✅ shown | — |
 | `screenshot_url` per issue | yes | ❌ sends `screenshot_path` (a laptop file path the browser cannot open) | ignores file paths | Backend |
-| `GET /files/...` serving `outputs/` | yes | ✅ added with `/api/verify` (scanner screenshots still save to `screenshots/`, not `outputs/`) | ready | Backend: save scan screenshots under `outputs/scans/<scan_id>/` |
+| `GET /files/...` serving `outputs/` | yes | ✅ added with `/api/verify`; scan screenshots now save under `outputs/scans/<scan_id>/` | ready | — |
 | Failure response | 4xx + `{detail: {code, message}}` | 200 + `status: "failed"` + `message` | handles both | — |
 
 ### Other endpoints

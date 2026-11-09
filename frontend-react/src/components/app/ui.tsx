@@ -411,9 +411,21 @@ function Check() {
   );
 }
 
+/** Which lines changed: a line only in "before" was removed, a line only in "after" was added. */
+export function changedLines(before: string[], after: string[]) {
+  const inAfter = new Set(after.map((l) => l.trim()));
+  const inBefore = new Set(before.map((l) => l.trim()));
+  const blank = (l: string) => l.trim() === "" || l === "⋯";
+  return {
+    removed: before.map((l) => !blank(l) && !inAfter.has(l.trim())),
+    added: after.map((l) => !blank(l) && !inBefore.has(l.trim())),
+  };
+}
+
 export function DiffViewer({ file }: { file: { path: string; before: string; after: string } }) {
   const before = file.before.split("\n");
   const after = file.after.split("\n");
+  const { removed, added } = changedLines(before, after);
   return (
     <div className="diff-pane flex flex-col">
       <div className="flex items-center justify-between border-b border-border px-3 py-1.5 bg-muted/50">
@@ -424,8 +436,8 @@ export function DiffViewer({ file }: { file: { path: string; before: string; aft
       </div>
       <div className="flex overflow-hidden lg:flex-row flex-col">
         {[
-          { t: "Before", lines: before, cls: "diff-del-bg diff-del", sign: "−" },
-          { t: "After", lines: after, cls: "diff-add-bg diff-add", sign: "+" },
+          { t: "Before", lines: before, changed: removed, cls: "diff-del-bg diff-del", sign: "−" },
+          { t: "After", lines: after, changed: added, cls: "diff-add-bg diff-add", sign: "+" },
         ].map((side) => (
           <div
             key={side.t}
@@ -435,8 +447,8 @@ export function DiffViewer({ file }: { file: { path: string; before: string; aft
             <div className="flex-1 overflow-x-auto overflow-y-auto">
               <pre className="diff-code">
                 {side.lines.map((l, i) => (
-                  <div key={i} className={cn("diff-line px-2", side.cls)}>
-                    <span className="diff-sign shrink-0 text-muted-foreground/60">{side.sign}</span>
+                  <div key={i} className={cn("diff-line px-2", side.changed.at(i) ? side.cls : "text-muted-foreground")}>
+                    <span className="diff-sign shrink-0 text-muted-foreground/60">{side.changed.at(i) ? side.sign : " "}</span>
                     <span className="whitespace-pre">{l || " "}</span>
                   </div>
                 ))}
