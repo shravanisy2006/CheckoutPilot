@@ -54,6 +54,7 @@ class UpgradePlanner:
                     break
 
             if checkout_tpl:
+                # 1a. Upgrade SDK script tag
                 changes.append(
                     PlannedChange(
                         gap_id="sdk_outdated",
@@ -65,6 +66,28 @@ class UpgradePlanner:
                         action="replace",
                         before_snippet=checkout_tpl.raw_tag,
                         after_snippet='  <script src="{{PAYPAL_SDK_URL}}"></script>',
+                        rationale=tech_rat,
+                        estimated_impact=biz_imp,
+                        syntax_type="html",
+                        priority=1,
+                    )
+                )
+                # 1b. Upgrade button container to v6 web component
+                changes.append(
+                    PlannedChange(
+                        gap_id="sdk_outdated",
+                        file=checkout_tpl.file_path,
+                        target_file=checkout_tpl.file_path,
+                        change_summary="Upgrade PayPal button container to v6 <paypal-button> web component",
+                        line_start=52,
+                        line_end=52,
+                        action="replace",
+                        before_snippet='<div id="paypal-button-container"></div>',
+                        after_snippet=(
+                            '<div id="paypal-button-container">\n'
+                            '        <paypal-button id="paypal-button" type="pay" hidden></paypal-button>\n'
+                            '      </div>'
+                        ),
                         rationale=tech_rat,
                         estimated_impact=biz_imp,
                         syntax_type="html",
@@ -160,10 +183,13 @@ class UpgradePlanner:
                 )
             )
 
-        # --- GAP 3: button_below_fold_mobile (CSS responsive reordering) ---
+        # --- GAP 3: button_below_fold_mobile (CSS responsive reordering + template class) ---
         if "button_below_fold_mobile" in active_gap_ids:
             tech_rat, biz_imp = get_rationale("button_below_fold_mobile")
             style_file = "static/style.css"
+            if context.layout and context.layout.style_file:
+                style_file = context.layout.style_file
+
             changes.append(
                 PlannedChange(
                     gap_id="button_below_fold_mobile",
@@ -185,6 +211,31 @@ class UpgradePlanner:
                     rationale=tech_rat,
                     estimated_impact=biz_imp,
                     syntax_type="css",
+                    priority=3,
+                )
+            )
+
+            # Also update checkout template to add "upgraded" class
+            checkout_file = "templates/checkout.html"
+            for sdk_ref in context.sdk_references:
+                if "checkout" in sdk_ref.file_path:
+                    checkout_file = sdk_ref.file_path
+                    break
+
+            changes.append(
+                PlannedChange(
+                    gap_id="button_below_fold_mobile",
+                    file=checkout_file,
+                    target_file=checkout_file,
+                    change_summary="Add upgraded class to checkout layout for responsive reordering",
+                    line_start=21,
+                    line_end=21,
+                    action="replace",
+                    before_snippet='<div class="checkout">',
+                    after_snippet='<div class="checkout upgraded">',
+                    rationale=tech_rat,
+                    estimated_impact=biz_imp,
+                    syntax_type="html",
                     priority=3,
                 )
             )

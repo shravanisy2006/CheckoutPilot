@@ -97,8 +97,8 @@ class AutonomousCodingAgent:
         # If no plan provided, generate it first
         active_plan = plan if plan is not None else self.plan_upgrades()
 
-        # 1. Apply plan using PatchEngine (handles AST/HTML validation and preservation checks)
-        engine = PatchEngine(self.repo_path)
+        # 1. Apply plan using PatchEngine (handles AST/HTML validation, LLM synthesis, and preservation checks)
+        engine = PatchEngine(self.repo_path, llm=self.llm)
         result = engine.apply_upgrade(active_plan)
 
         files = result.get("files_changed", [])

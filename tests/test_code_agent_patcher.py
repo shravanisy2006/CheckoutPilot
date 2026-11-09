@@ -8,6 +8,7 @@ from pathlib import Path
 from code_agent.patcher import (
     PatchEngine,
     apply_upgrade,
+    validate_balanced_brackets,
     validate_business_preservation,
     validate_html_syntax_and_ids,
     validate_python_syntax,
@@ -49,7 +50,7 @@ def test_validate_business_preservation():
     stripped = "calculate_total()\n# deleted products"
     ok, err = validate_business_preservation(orig, stripped, ["PRODUCTS"])
     assert ok is False
-    assert "Non-payment business code was removed" in err
+    assert "business code was removed" in err
 
 
 def test_end_to_end_store_patching(tmp_path):
@@ -187,3 +188,55 @@ def test_upgrade_arbitrary_repo_structure(tmp_path):
     updated_cart = (views_dir / "cart.html").read_text(encoding="utf-8")
     assert "<paypal-button" in updated_cart
 
+
+
+def test_validate_balanced_brackets_javascript():
+    """Verify JS/TS bracket validator detects unbalanced code."""
+    valid_js = "function pay() { const cart = [1, 2]; if (cart.length > 0) { return true; } }"
+    ok, err = validate_balanced_brackets(valid_js)
+    assert ok is True
+    assert err is None
+
+    broken_js = "function pay() { const cart = [1, 2; }"
+    ok, err = validate_balanced_brackets(broken_js)
+    assert ok is False
+    assert "Mismatched" in err or "bracket" in err.lower()
+
+
+def test_synthesize_file_patch_with_mock_llm():
+    """Verify LLM patch synthesizer cleanly updates a file while respecting business preservation."""
+    from code_agent.patcher import synthesize_file_patch
+    from tests.test_agentic_coding_agent import MockLLMAdapter
+
+    orig_server = (
+        'const express = require("express");\n'
+        'const app = express();\n'
+        'const PRODUCTS = [{ id: "pen", price: 35.0 }];\n'
+        'app.post("/api/orders", (req, res) => res.json({ id: "123" }));\n'
+        'app.listen(3000);\n'
+    )
+
+    valid_llm_response = (
+        '```javascript\n'
+        'const express = require("express");\n'
+        'const app = express();\n'
+        'const PRODUCTS = [{ id: "pen", price: 35.0 }];\n'
+        'app.get("/api/paypal/client-token", (req, res) => res.json({ accessToken: "mock-token" }));\n'
+        'app.post("/api/orders", (req, res) => res.json({ id: "123" }));\n'
+        'app.listen(3000);\n'
+        '```'
+    )
+
+    mock_llm = MockLLMAdapter()
+    mock_llm.generate_text = lambda prompt, system_prompt=None: valid_llm_response
+
+    result = synthesize_file_patch("server.js", orig_server, "Add client token endpoint", llm=mock_llm)
+    assert result is not None
+    assert "/api/paypal/client-token" in result
+    assert "PRODUCTS" in result
+
+    # Test safety rejection: if LLM output strips PRODUCTS
+    bad_llm_response = '```javascript\napp.get("/api/paypal/client-token", ...);\n```'
+    mock_llm.generate_text = lambda prompt, system_prompt=None: bad_llm_response
+    rejected = synthesize_file_patch("server.js", orig_server, "Add client token endpoint", llm=mock_llm)
+    assert rejected is None  # Must be rejected to protect business logic
