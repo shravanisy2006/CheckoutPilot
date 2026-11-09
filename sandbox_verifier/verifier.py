@@ -71,6 +71,7 @@ NEXT_BUTTONS = ["#btnNext", "button[data-testid='nextButton']", "button[name='bt
 NEXT_BUTTON_TEXT = re.compile(r"^\s*(Next|Continue)\s*$", re.I)
 NEXT_RETRY_SECONDS = 6  # PayPal's newer email page sometimes ignores the first click
 TYPING_DELAY_MS = 35     # pause between key presses when typing the login
+BROWSER_ARGS = ["--disable-blink-features=AutomationControlled"]
 LOGIN_BUTTONS = ["#btnLogin"]
 PAY_BUTTONS = ["#payment-submit-btn", "[data-id='payment-submit-btn']",
                "button[data-testid='submit-button-initial']"]
@@ -272,6 +273,13 @@ def _pause(page, seconds: float) -> None:
         pass
 
 
+def _normal_user_agent(browser) -> str:
+    """The real Chrome user agent, without "HeadlessChrome" (used in headless mode)."""
+    version = browser.version  # e.g. "131.0.6778.33"
+    return (f"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+            f"(KHTML, like Gecko) Chrome/{version} Safari/537.36")
+
+
 def _type_like_a_person(box, text: str) -> None:
     """Type key by key: PayPal's newer login pages only enable Next after real key events."""
     box.click(timeout=5000)
@@ -380,11 +388,15 @@ def verify_checkout(store_url: str, label: str = "before", page: str = "checkout
 
     with sync_playwright() as playwright:
         try:
-            browser = playwright.chromium.launch(headless=headless, slow_mo=slow_mo)
+            browser = playwright.chromium.launch(headless=headless, slow_mo=slow_mo, args=BROWSER_ARGS)
         except PlaywrightError as error:
             raise ModuleError(VERIFY_BROWSER_MISSING,
                               f"Could not start Chromium. Run: playwright install chromium ({error})") from error
-        context = browser.new_context(viewport={"width": 1280, "height": 900}, locale="en-US")
+        context = browser.new_context(viewport={"width": 1280, "height": 900}, locale="en-US",
+                                      user_agent=_normal_user_agent(browser))
+        # Hide the "controlled by automation" flag. PayPal's newer email-first login
+        # page silently ignores the Next button for browsers that report it.
+        context.add_init_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined});")
         store = context.new_page()
         try:
             return _run_purchase(run, store, context, store_url, page, email, password)
