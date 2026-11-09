@@ -1,0 +1,16 @@
+# Stores to try with:  python -m scripts.real_store_trial --file scripts/stores.example.txt
+# One URL per line; "#" starts a comment. Public pages only; nothing is bought.
+# Copy this file to stores.txt and add your own candidates (stores.txt is not committed).
+
+# 1. PayPal's own demo store (safest choice for the live demo)
+https://demo.paypal.com/us/demo/home
+
+# 2. Small shops that show a PayPal button (check by hand first, then add them here)
+# https://...
+
+# 3. A big brand that accepts PayPal (often blocks automated browsers)
+# https://...
+
+# Our own demo stores, for comparison (start them first and set ALLOW_LOCALHOST_SCANS=true)
+# http://localhost:8101
+# http://localhost:8102

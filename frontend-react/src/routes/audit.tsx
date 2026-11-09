@@ -16,6 +16,7 @@ import {
   StorefrontPreview,
 } from "@/components/app/ui";
 import type { Severity } from "@/lib/checkout/types";
+import { IssuesGrid } from "@/components/app/IssuesGrid";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/audit")({
@@ -207,6 +208,16 @@ function AuditPage() {
                   View recommendations <ArrowRight className="h-4 w-4" />
                 </Link>
               </div>
+            </div>
+
+            <div className="space-y-3">
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <h2 className="font-display text-lg font-light text-foreground">All findings</h2>
+                <p className="text-xs text-muted-foreground">
+                  Sort or filter any column. Impact is the 0–100 score from the impact ranker, with its source.
+                </p>
+              </div>
+              <IssuesGrid scan={data} />
             </div>
           </div>
         )}

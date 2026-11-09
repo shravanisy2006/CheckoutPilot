@@ -10,5 +10,11 @@ router = APIRouter(prefix="/scan", tags=["Scan"])
 
 @router.post("", response_model=ScanResponse)
 def start_scan(request: ScanRequest) -> ScanResponse:
-    """Start a scan. Currently returns placeholder results."""
+    """Scan a store's PayPal checkout (FIND step).
+
+    Opens the store in a real browser (product, cart and checkout pages, desktop and
+    mobile), checks the PayPal SDK version and button placement with rule checks and
+    an AI vision model, and returns the issues ranked by impact plus a 0-100 health
+    score. Takes about 10-60 seconds. Example body: `{"store_url": "http://localhost:8101"}`.
+    """
     return run_scan(request)

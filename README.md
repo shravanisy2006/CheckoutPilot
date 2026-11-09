@@ -74,50 +74,65 @@ When the rules and the vision model agree on an issue, it is marked `rule+vision
 | Impact ranker + health score | ✅ Done |
 | PayPal Sandbox client (Orders v2) | ✅ Done |
 | Demo stores (legacy v5 + upgraded v6) | ✅ Done, real payments tested |
-| Sandbox verifier (automated purchase) | ✅ Done |
-| Scanner (Playwright) | ✅ Working, being merged |
-| Backend API (`/api/scan`) | 🟡 Scans end to end; adding health score and evidence to the response |
+| Sandbox verifier (automated purchase) | ✅ Done, passes on both stores (headless and visible) |
+| Scanner (Playwright) | ✅ Done |
+| Backend API | ✅ `/api/scan`, `/api/verify`, `/api/reports`, `/files`; 🟡 `/api/fix` waits for the code agent |
 | Code agent (FIX) | 🟡 In progress |
-| Dashboard (Streamlit) | 🟡 In progress |
+| Dashboard (React) | ✅ Demo mode with real recorded results; Live mode connected to `/api/scan` |
+| One-command launcher (`run_demo.py`) | ✅ Done, with `--mock` mode for running without keys |
 
 ## Quick start
 
-You need **Python 3.10+** and **Git**.
+**Platform:** a web app that runs locally on **Windows, macOS or Linux**.
+**You need:** Python 3.10+, Node.js 18+ (for the dashboard) and Git. The PayPal **Sandbox** and a Gemini API key are optional: `--mock` runs everything without keys.
 
 ```bash
 git clone https://github.com/shravanisy2006/CheckoutPilot.git
 cd CheckoutPilot
 python -m venv venv
-venv\Scripts\activate            # Windows PowerShell: venv\Scripts\Activate.ps1   macOS/Linux: source venv/bin/activate
+venv\Scripts\activate            # PowerShell: venv\Scripts\Activate.ps1   macOS/Linux: source venv/bin/activate
 pip install -r requirements.txt
 playwright install chromium
-copy .env.example .env           # macOS/Linux: cp .env.example .env
+
+python run_demo.py --mock         # no keys needed: simulated PayPal + verifier, AI rule checks
+# or
+python run_demo.py                # real mode: fill in .env first (PayPal Sandbox + Gemini keys)
 ```
 
-Fill in `.env` (see [Environment variables](#environment-variables)), then try each part:
+`run_demo.py` creates `.env` from `.env.example` if it is missing, checks your setup, and starts everything:
+
+| What | Address |
+|---|---|
+| **Dashboard** (open this) | http://localhost:5173 |
+| Backend API docs | http://localhost:8000/docs |
+| Legacy demo store (SDK v5, "before") | http://localhost:8101 |
+| Upgraded demo store (SDK v6, "after") | http://localhost:8102 |
+
+In the dashboard: **Audit → enter `http://localhost:8101` → Start scan**, then Recommendations → Fix → Proof.
+The dashboard's **Demo** switch replays recorded real results with no backend at all; **Live** calls the backend.
+Press **Ctrl+C** to stop everything. Logs are in `outputs/logs/`.
+
+Other useful commands:
 
 ```bash
-# Run the two demo stores
-python -m demo_stores.serve legacy       # http://localhost:8101  (before)
-python -m demo_stores.serve upgraded     # http://localhost:8102  (after)
-
-# Check your PayPal Sandbox keys
-python -m paypal_integration.try_paypal
-
-# Prove checkout works: real Sandbox purchase on both stores (starts the stores for you)
-python -m sandbox_verifier.verify both --headed
-
-# Measure the AI
-python -m ai_engine.capture_eval_shots
+python run_demo.py --check                          # only check the setup
+python run_demo.py --smoke-test                     # start, scan the legacy store once, stop
+python -m paypal_integration.try_paypal             # check your PayPal Sandbox keys
+python -m sandbox_verifier.verify both --headed     # real Sandbox purchase on both stores, watch it pay
+python -m scripts.real_store_trial --file scripts/stores.txt --no-vision   # try public stores (FIND only)
+python -m ai_engine.capture_eval_shots              # AI evaluation screenshots, then:
 python -m ai_engine.evaluate --vision-cases outputs/eval_shots/eval_cases.json --markdown docs/ai_results.md
-
-# Backend + dashboard
-uvicorn backend.main:app --reload        # http://localhost:8000/docs
-streamlit run frontend/app.py            # http://localhost:8501
-
-# Tests
-python -m pytest -q
+python -m pytest -q                                 # Python tests
+cd frontend-react && npm test                       # dashboard tests
 ```
+
+**What needs which keys:**
+
+| Feature | Without keys (`--mock`) | With keys |
+|---|---|---|
+| Scan a store, find and rank issues | ✅ (rule checks) | ✅ + Gemini vision on screenshots |
+| Real PayPal Sandbox payment (PROVE) | simulated, clearly labelled | ✅ real Sandbox order, checked with the Orders API |
+| Dashboard Demo mode | ✅ | ✅ |
 
 ## The demo stores
 
@@ -147,8 +162,10 @@ Prices are always calculated on the server from item IDs; the browser never send
 | AI | Gemini (vision) via REST; Anthropic and OpenAI also supported (`AI_PROVIDER`) |
 | Payments | PayPal REST APIs (Sandbox): OAuth, Orders v2; JavaScript SDK v5 and v6 |
 | Backend | FastAPI + Uvicorn |
-| Frontend | Streamlit |
-| Tests | pytest (160+ tests) |
+| Frontend | React dashboard (`frontend-react/`, Vite + TanStack); legacy Streamlit page in `frontend/` |
+| Tables in the dashboard | **AG Grid** Community: sortable, filterable "All findings" grid on the Audit page |
+| API docs and SDKs | **APIMatic**: developer portal and client SDKs generated from [`docs/openapi.json`](docs/openapi.json) (see [`docs/apimatic.md`](docs/apimatic.md)) |
+| Tests | pytest (220+ tests) and Vitest (dashboard) |
 
 ## Project structure
 
