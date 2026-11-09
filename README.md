@@ -20,7 +20,7 @@ Give it a store URL. It works in four steps:
 |---|---|---|
 | **FIND** | Walks the store like a shopper (product → cart → checkout, desktop and mobile) and finds what is holding PayPal back | Playwright browser + rule checks + a vision AI model (Gemini) reading the screenshots |
 | **RANK** | Orders the problems by business impact and gives the store a health score | Severity × category weights, with every assumption tied to a cited PayPal source |
-| **FIX** | Writes the upgrade (SDK v5 → v6, PayPal on the cart page) as a pull request | Code agent working on a copy of the store, never the live code |
+| **FIX** | Writes the upgrade (SDK v5 → v6, PayPal on the cart page) with a diff for every file | Code agent working on a copy of the store, never the live code |
 | **PROVE** | Completes a real PayPal **Sandbox** purchase on the store before and after the fix | Automated browser buyer + PayPal Orders API check |
 
 The merchant sees the issues, the diff and the payment proof, and only then decides whether to approve. **Nothing is changed silently.**
@@ -76,8 +76,8 @@ When the rules and the vision model agree on an issue, it is marked `rule+vision
 | Demo stores (legacy v5 + upgraded v6) | ✅ Done, real payments tested |
 | Sandbox verifier (automated purchase) | ✅ Done, passes on both stores (headless and visible) |
 | Scanner (Playwright) | ✅ Done |
-| Backend API | ✅ `/api/scan`, `/api/verify`, `/api/reports`, `/files`; 🟡 `/api/fix` waits for the code agent |
-| Code agent (FIX) | 🟡 In progress |
+| Backend API | ✅ `/api/scan`, `/api/fix`, `/api/verify`, `/api/reports`, `/files` |
+| Code agent (FIX) | ✅ Patches a copy of the store (v5 → v6, cart button, mobile layout); AI plan + template upgrade with a key, template only without one (`generated_by` says which). Opening real pull requests: 🟡 next |
 | Dashboard (React) | ✅ Demo mode with real recorded results; Live mode connected to `/api/scan` |
 | One-command launcher (`run_demo.py`) | ✅ Done, with `--mock` mode for running without keys |
 
@@ -150,7 +150,7 @@ Prices are always calculated on the server from item IDs; the browser never send
 ## Safety
 
 - **Sandbox only.** The PayPal client refuses any API URL that is not `sandbox`. The verifier only types the test buyer's login into `www.sandbox.paypal.com` and only tests stores on `localhost`.
-- **No silent changes.** The code agent patches a copy and opens a pull request; the merchant decides.
+- **No silent changes.** The code agent patches a copy and shows every diff; nothing goes live until the merchant approves.
 - **Secrets stay local.** Keys live only in `.env`, which is git-ignored. The verifier never prints or saves the buyer password.
 - **Honest numbers.** Impact estimates cite their source and say when an effect was not measured.
 
@@ -174,7 +174,7 @@ CheckoutPilot/
 ├── scanner/              # Playwright: walks product → cart → checkout, desktop + mobile
 ├── ai_engine/            # rule checks, Gemini vision, evaluation tools
 ├── impact_ranker/        # impact scores, health score, cited assumptions
-├── code_agent/           # writes the upgrade as a pull request
+├── code_agent/           # writes the upgrade on a copy of the store
 ├── paypal_integration/   # PayPal Sandbox client (token, create/get/capture order) + mock
 ├── sandbox_verifier/     # automated Sandbox purchase with proof
 ├── demo_stores/          # legacy_store (v5) and upgraded_store (v6) + serve.py launcher

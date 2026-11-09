@@ -131,6 +131,95 @@
         }
       }
     },
+    "/api/fix": {
+      "post": {
+        "tags": [
+          "Fix"
+        ],
+        "summary": "Fix",
+        "description": "Write the upgrade (PayPal SDK v5 -> v6, cart button, mobile layout) on a copy of the store.\n\nExample body: `{\"store\": \"legacy\"}` or `{\"scan_id\": \"<id from /api/scan>\", \"issue_ids\": [...]}`.\nThe original store is never changed; the patched copy is in `patched_store_dir`.\nResponse shape: docs/sample_result.json -> \"fix\", plus `generated_by` (\"ai+template\" or \"template\").\nThen call POST /api/verify with `{\"fix_id\": ...}` to prove it with a Sandbox payment.",
+        "operationId": "fix_api_fix_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FixRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Fix Api Fix Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/fix/{fix_id}": {
+      "get": {
+        "tags": [
+          "Fix"
+        ],
+        "summary": "Get Fix",
+        "description": "Return an earlier fix (kept in memory until the backend restarts).",
+        "operationId": "get_fix_api_fix__fix_id__get",
+        "parameters": [
+          {
+            "name": "fix_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Fix Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Fix Api Fix  Fix Id  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/verify": {
       "post": {
         "tags": [
@@ -244,6 +333,55 @@
   },
   "components": {
     "schemas": {
+      "FixRequest": {
+        "properties": {
+          "scan_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scan Id",
+            "examples": [
+              null
+            ]
+          },
+          "store": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Store",
+            "examples": [
+              "legacy"
+            ]
+          },
+          "issue_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Issue Ids",
+            "examples": [
+              [
+                "sdk_outdated",
+                "no_paypal_on_cart",
+                "button_below_fold_mobile"
+              ]
+            ]
+          }
+        },
+        "type": "object",
+        "title": "FixRequest",
+        "description": "Which store to upgrade and which issues to fix.\n\n``scan_id`` (from POST /api/scan) picks the store that was scanned; or name it with\n``store`` (\"legacy\"). The code agent only patches stores whose code we have (our demo\nstores); for a real merchant it would work on their repository instead."
+      },
       "Gap": {
         "properties": {
           "gap_id": {
