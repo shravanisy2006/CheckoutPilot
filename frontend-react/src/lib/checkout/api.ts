@@ -1,7 +1,21 @@
 import { adaptFix, adaptScan, adaptVerification } from "./adapt";
 import type { FixResult, Job, ScanResult, VerificationResult } from "./types";
 
-export const API_BASE_URL = (import.meta.env["VITE_API_BASE_URL"] as string | undefined)?.replace(/\/$/, "") ?? "";
+/**
+ * Where the backend is. "same-origin" (the hosted Render build) means the backend serves this
+ * dashboard, so it is the page's own address. Anything else is a full URL (local dev:
+ * http://localhost:8000, set by run_demo.py).
+ */
+export function resolveApiBase(raw: string | undefined, origin?: string): string {
+  const value = (raw ?? "").trim();
+  if (value === "same-origin") return (origin ?? "").replace(/\/$/, "");
+  return value.replace(/\/$/, "");
+}
+
+export const API_BASE_URL = resolveApiBase(
+  import.meta.env["VITE_API_BASE_URL"] as string | undefined,
+  typeof window !== "undefined" ? window.location.origin : undefined,
+);
 
 export class ApiError extends Error {
   constructor(message: string, public status?: number) {

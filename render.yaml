@@ -1,0 +1,61 @@
+# Render Blueprint: one FREE web service runs the whole CheckoutPilot app
+# (dashboard + API + the two example stores). Step-by-step guide: docs/deploy_render.md
+#
+# Free plan = 512 MB memory, 0.1 CPU, sleeps after 15 minutes without visitors (wakes in ~1 min).
+# FREE_TIER=true makes the app fit: stores inside the main process, low-memory Chromium,
+# one scan/fix/proof at a time, longer waits. For a faster server change `plan` to standard.
+#
+# Secrets (sync: false) are typed into the Render dashboard once; they are never in Git.
+services:
+  - type: web
+    name: checkoutpilot
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    region: singapore
+    healthCheckPath: /api/health
+    envVars:
+      # --- Secrets: fill these in on Render (Environment tab) ---
+      - key: PAYPAL_CLIENT_ID
+        sync: false
+      - key: PAYPAL_CLIENT_SECRET
+        sync: false
+      - key: PAYPAL_SANDBOX_BUYER_EMAIL       # a US *Personal* Sandbox account
+        sync: false
+      - key: PAYPAL_SANDBOX_BUYER_PASSWORD
+        sync: false
+      - key: GOOGLE_API_KEY                   # Gemini; without it the AI uses rule checks only
+        sync: false
+      # --- Free plan: fit into 512 MB / 0.1 CPU ---
+      - key: FREE_TIER
+        value: "true"
+      - key: BROWSER_TIMEOUT_MS
+        value: "90000"
+      - key: BROWSER_NAV_TIMEOUT_MS
+        value: "60000"
+      - key: BROWSER_ACTION_TIMEOUT_MS
+        value: "8000"
+      - key: AI_TIMEOUT_SECONDS
+        value: "180"
+      # --- Plain settings ---
+      - key: PAYPAL_ENVIRONMENT
+        value: sandbox
+      - key: PAYPAL_API_BASE
+        value: https://api-m.sandbox.paypal.com
+      - key: AI_PROVIDER
+        value: gemini
+      - key: AI_MODEL
+        value: gemini-3.8-flash
+      - key: AI_FALLBACK_MODEL
+        value: gemini-3.5-flash-lite
+      - key: AI_VISION_ENABLED
+        value: "true"
+      - key: MOCK_PAYPAL
+        value: "false"
+      - key: MOCK_VERIFIER
+        value: "false"
+      # Public-demo protection (the Dockerfile has the same defaults).
+      - key: RATE_LIMIT_PER_HOUR
+        value: "30"
+      - key: OUTPUTS_MAX_AGE_HOURS
+        value: "24"

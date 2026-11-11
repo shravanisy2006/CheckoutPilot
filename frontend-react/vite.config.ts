@@ -4,6 +4,11 @@ import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import tailwindcss from "@tailwindcss/vite";
 import tsConfigPaths from "vite-tsconfig-paths";
 
+// Hosted build (Render, see Dockerfile): CHECKOUTPILOT_STATIC=1 builds a static single-page
+// app (dist/client + _shell.html) that the FastAPI backend serves from the same URL.
+// Local `npm run dev` is unchanged.
+const STATIC_BUILD = process.env.CHECKOUTPILOT_STATIC === "1";
+
 // https://vitejs.dev/config/
 // tanstackStart() already includes the TanStack router plugin (route tree + code
 // splitting). Adding tanstackRouter() as well ran it twice and broke `npm run dev`
@@ -12,6 +17,8 @@ export default defineConfig({
   plugins: [
     tanstackStart({
       server: { entry: "server" },
+      // Every page (/, /audit, /recommendations, /fix, /proof) is pre-drawn to its own HTML file.
+      ...(STATIC_BUILD ? { spa: { enabled: true }, prerender: { enabled: true, crawlLinks: true } } : {}),
     }),
     tailwindcss(),
     react(),
