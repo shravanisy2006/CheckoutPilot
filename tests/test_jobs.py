@@ -84,3 +84,13 @@ def test_strip_port_handles_azure_style_addresses():
     assert hosting.strip_port("203.0.113.7") == "203.0.113.7"
     assert hosting.strip_port("[2001:db8::1]:443") == "2001:db8::1"
     assert hosting.strip_port("2001:db8::1") == "2001:db8::1"
+
+
+def test_a_separate_dashboard_can_read_job_answers(client):
+    """CORS wraps the hosting middleware, so the 202 job answer is readable from another site (Vercel)."""
+    from backend.core.config import settings
+
+    origin = settings.cors_origins[0]
+    response = client.post("/api/scan", json={"store_url": "https://example.com"}, headers={"Origin": origin})
+    assert response.status_code == 202
+    assert response.headers.get("access-control-allow-origin") == origin

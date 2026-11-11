@@ -96,6 +96,8 @@ def test_dashboard_serves_files_routes_and_never_escapes(tmp_path):
     (folder / "audit" / "index.html").write_text("<html>audit</html>")
     assert Path(hosting.dashboard_response(folder, "audit").path) == folder / "audit" / "index.html"
     assert Path(hosting.dashboard_response(folder, "audit/").path) == folder / "audit" / "index.html"
+    (folder / "proof.html").write_text("<html>proof</html>")
+    assert Path(hosting.dashboard_response(folder, "proof").path) == folder / "proof.html"
     assert Path(hosting.dashboard_response(folder, "").path).name == "_shell.html"
     assert Path(hosting.dashboard_response(folder, "../secret.txt").path).name == "_shell.html"
     assert hosting.dashboard_response(folder, "api/nope").status_code == 404
