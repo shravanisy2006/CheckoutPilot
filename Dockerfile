@@ -11,7 +11,7 @@ COPY frontend-react/package.json frontend-react/package-lock.json frontend-react
 RUN npm ci --no-audit --no-fund
 COPY frontend-react/ ./
 # "same-origin" = the dashboard calls the backend at its own address.
-ENV CHECKOUTPILOT_STATIC=1 VITE_API_BASE_URL=same-origin
+ENV CHECKOUTPILOT_STATIC=1 VITE_API_BASE_URL=same-origin NODE_OPTIONS=--dns-result-order=ipv4first
 RUN npm run build
 
 # ---- 2. Backend + scanner + verifier (Chromium comes with this image) ----

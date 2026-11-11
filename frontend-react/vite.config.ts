@@ -24,4 +24,8 @@ export default defineConfig({
     react(),
     tsConfigPaths({ projects: ["./tsconfig.json"] }),
   ],
+  // The static build pre-draws pages through a short-lived preview server. Pin it to 127.0.0.1:
+  // inside Docker "localhost" can resolve to a different address than the one it listens on
+  // (the build then fails with ECONNREFUSED 127.0.0.1).
+  ...(STATIC_BUILD ? { preview: { host: "127.0.0.1" } } : {}),
 });
