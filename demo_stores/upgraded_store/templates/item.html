@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{PRODUCT_NAME}} | {{STORE_NAME}}</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body data-page="product">
+  <header class="site-header">
+    <a class="brand" href="/">{{STORE_NAME}}</a>
+    <nav class="site-nav" aria-label="Shop">{{SITE_NAV}}</nav>
+    <a class="cart-link" id="go-to-cart" href="/cart">Cart (<span id="cart-count">0</span>)</a>
+  </header>
+
+  <main>
+    <p class="breadcrumb"><a href="/">Home</a> / <a href="/shop?category={{CATEGORY_ID}}">{{CATEGORY_NAME}}</a> / {{PRODUCT_NAME}}</p>
+    <section class="product">
+      <div class="product-image" aria-hidden="true">{{PRODUCT_IMAGE}}</div>
+
+      <div class="card">
+        <h1>{{PRODUCT_NAME}}</h1>
+        <p class="price">${{PRODUCT_PRICE}}</p>
+        <p class="description">{{PRODUCT_DESCRIPTION}}</p>
+
+        <div class="qty-row">
+          <label for="qty">Quantity</label>
+          <input id="qty" type="number" min="1" max="10" value="1">
+        </div>
+
+        <div class="actions">
+          <button class="button" id="add-to-cart" type="button" data-id="{{PRODUCT_ID}}">Add to cart</button>
+          <a class="button secondary" href="/cart">View cart</a>
+        </div>
+        <p class="notice" id="cart-notice" role="status"></p>
+      </div>
+    </section>
+
+    <section class="more">
+      <h2>More {{CATEGORY_NAME}}</h2>
+      <div class="product-grid">{{RELATED_GRID}}</div>
+    </section>
+  </main>
+
+  <footer class="site-footer">{{STORE_NAME}} is a demo store for CheckoutPilot. No real payments.</footer>
+
+  <script src="/static/cart.js"></script>
+  <script src="/static/shop.js"></script>
+</body>
+</html>

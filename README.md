@@ -120,6 +120,7 @@ python run_demo.py --smoke-test                     # start, scan the legacy sto
 python -m paypal_integration.try_paypal             # check your PayPal Sandbox keys
 python -m sandbox_verifier.verify both --headed     # real Sandbox purchase on both stores, watch it pay
 python -m scripts.real_store_trial --file scripts/stores.txt --no-vision   # try public stores (FIND only)
+python -m scripts.record_demo        # with `python run_demo.py` running (real mode): re-record Demo Mode from one live run
 python -m ai_engine.capture_eval_shots              # AI evaluation screenshots, then:
 python -m ai_engine.evaluate --vision-cases outputs/eval_shots/eval_cases.json --markdown docs/ai_results.md
 python -m pytest -q                                 # Python tests

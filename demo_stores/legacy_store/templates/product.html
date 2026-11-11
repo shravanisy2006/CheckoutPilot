@@ -9,6 +9,7 @@
 <body data-page="product">
   <header class="site-header">
     <a class="brand" href="/">{{STORE_NAME}}</a>
+    <nav class="site-nav" aria-label="Shop">{{SITE_NAV}}</nav>
     <a class="cart-link" id="go-to-cart" href="/cart">Cart (<span id="cart-count">0</span>)</a>
   </header>
 
@@ -41,11 +42,18 @@
         <p class="notice" id="cart-notice" role="status"></p>
       </div>
     </section>
+
+    <section class="more">
+      <h2>More from {{STORE_NAME}}</h2>
+      <div class="product-grid">{{MORE_PRODUCTS}}</div>
+      <p><a href="/shop">See all products</a></p>
+    </section>
   </main>
 
   <footer class="site-footer">{{STORE_NAME}} is a demo store for CheckoutPilot. No real payments.</footer>
 
   <script src="/static/cart.js"></script>
+  <script src="/static/shop.js"></script>
   <script>
     function updateCount() {
       const count = readCart().reduce((sum, item) => sum + item.qty, 0);
