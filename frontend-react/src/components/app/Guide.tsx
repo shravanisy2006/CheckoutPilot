@@ -45,6 +45,30 @@ export const EXAMPLE_STORES = [
   },
 ] as const;
 
+/** Public stores that scan well (tested): scan only, since we don't have their code. */
+export const REAL_STORES = [
+  {
+    url: "https://demo.paypal.com/us/demo/home",
+    label: "PayPal demo site",
+    hint: "Real site that loads the PayPal SDK",
+  },
+  {
+    url: "https://practicesoftwaretesting.com",
+    label: "Practice tool shop",
+    hint: "Real shop, every page reachable, no PayPal",
+  },
+] as const;
+
+/** True for our example stores: the only ones whose code we have, so Fix + Prove can run on them. */
+export function isExampleStore(url: string | undefined | null): boolean {
+  try {
+    const u = new URL(url ?? "");
+    return ["localhost", "127.0.0.1"].includes(u.hostname) && ["8101", "8102"].includes(u.port);
+  } catch {
+    return false;
+  }
+}
+
 /* ------------------------------------------------------------ storage --- */
 // Browser storage can be missing or blocked (private windows, previews): never let it break the page.
 export function readPref(key: string): string | null {
@@ -83,7 +107,15 @@ export interface NextStep {
 
 /** Pure: what the visitor should do next, from the app state and the page they are on. */
 export function nextStep(
-  s: { scan: string; fix: string; verify: string; issues: number; selected: number; passed?: boolean | undefined },
+  s: {
+    scan: string;
+    fix: string;
+    verify: string;
+    issues: number;
+    selected: number;
+    passed?: boolean | undefined;
+    realStore?: boolean | undefined;
+  },
   path: string,
   mode: "demo" | "live",
 ): NextStep {
@@ -108,6 +140,14 @@ export function nextStep(
           ? "The scan failed. Check the address, or try our example store below the box."
           : "Paste your store's address, or click an example store, then press Start scan.",
       cta: go("Go to scan", "/audit"),
+    };
+  if (s.realStore && s.fix === "idle")
+    return {
+      current: "choose",
+      done,
+      busy: false,
+      text: `Real store scanned: ${s.issues} issue${s.issues === 1 ? "" : "s"} found, ranked by impact. Fixing needs the store's code, so to see Fix and Prove, scan our example store.`,
+      cta: go("See recommendations", "/recommendations"),
     };
   if (s.fix === "idle")
     return {
@@ -169,6 +209,7 @@ function useNextStep(): NextStep {
       issues: scan.data?.issues.length ?? 0,
       selected: selected.length,
       passed: verify.data?.passed,
+      realStore: Boolean(scan.data) && !isExampleStore(scan.data?.store_url),
     },
     path,
     mode,
@@ -394,9 +435,15 @@ export function useStepToasts() {
 
     if (p.scan === "running" && scan.phase === "success" && scan.data) {
       const n = scan.data.issues.length;
+      const real = !isExampleStore(scan.data.store_url);
       toast.success(`Scan finished: ${n} issue${n === 1 ? "" : "s"}, health ${scan.data.health_score}/100`, {
-        description: "Next: choose which issues CheckoutPilot should fix.",
-        action: path === "/recommendations" ? undefined : { label: "Choose fixes", onClick: () => navigate({ to: "/recommendations" }) },
+        description: real
+          ? "Next: see the ranked recommendations for this store."
+          : "Next: choose which issues CheckoutPilot should fix.",
+        action:
+          path === "/recommendations"
+            ? undefined
+            : { label: real ? "See recommendations" : "Choose fixes", onClick: () => navigate({ to: "/recommendations" }) },
         duration: 8000,
       });
     }

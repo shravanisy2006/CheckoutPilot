@@ -54,7 +54,9 @@ def pages_reached(scan: dict) -> dict:
     reached = {"desktop": {}, "mobile": {}}
     for page in scan.get("pages") or []:
         viewport = page.get("viewport", "desktop")
-        reached.setdefault(viewport, {})[page.get("step", "?")] = bool(page.get("success", True))
+        # "Reached" = really reached (journey followed, page loaded, not blank), not just "no error".
+        reached.setdefault(viewport, {})[page.get("step", "?")] = bool(
+            page.get("verified", page.get("success", True)))
     return reached
 
 
@@ -64,11 +66,14 @@ def verdict(row: dict) -> str:
         return "skip (scan failed)"
     desktop = row["reached"].get("desktop", {})
     steps_ok = sum(1 for step in STEPS if desktop.get(step))
-    if steps_ok == 3 and row["sdk"] not in ("none", "unknown", ""):
+    has_paypal = row["sdk"] not in ("none", "unknown", "")
+    if steps_ok == 3 and has_paypal:
         return "GOOD for demo"
     if steps_ok >= 2:
-        return "partial (some pages not reached)"
-    return "weak (blocked or unusual layout)"
+        return "partial (some pages not reached)" if has_paypal else "reached, but no PayPal found"
+    if has_paypal:
+        return "PayPal found, but the cart/checkout could not be reached"
+    return "weak (blocked, blank or unusual layout)"
 
 
 def scan_one(url: str, out_dir: Path, include_mobile: bool) -> dict:

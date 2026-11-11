@@ -92,6 +92,22 @@ def _has_paypal(page: dict) -> bool:
     return bool(_payment_elements(page))
 
 
+def verified_pages(pages: list[dict]) -> list[dict]:
+    """Pages the scanner really reached (journey followed, page loaded, not blank).
+
+    Scans made before the scanner recorded "verified" count as verified, so older results
+    and our tests keep working.
+    """
+    return [page for page in pages if page.get("verified", True)]
+
+
+def store_offers_paypal(scan_data: dict) -> bool:
+    """True if the store loads a PayPal SDK or shows a PayPal element on any page."""
+    if get_sdk_version(scan_data) not in ("", "none", "unknown"):
+        return True
+    return any(_has_paypal(page) for page in scan_data.get("pages", []) or [])
+
+
 def _first_screenshot(pages: list[dict]) -> str:
     """Screenshot of the first page in the list (desktop is listed first by the scanner)."""
     for page in pages:
@@ -118,7 +134,8 @@ def check_sdk_version(scan_data: dict) -> list[dict]:
 
 def check_paypal_on_cart(scan_data: dict) -> list[dict]:
     """Flag stores where no PayPal button appears on any cart page."""
-    cart_pages = get_pages(scan_data, "cart")
+    # Only pages we really reached: an empty or blank cart page proves nothing about PayPal.
+    cart_pages = verified_pages(get_pages(scan_data, "cart"))
     if not cart_pages or any(_has_paypal(page) for page in cart_pages):
         return []
     viewports = ", ".join(sorted({page.get("viewport", "unknown") for page in cart_pages}))
@@ -129,7 +146,9 @@ def check_paypal_on_cart(scan_data: dict) -> list[dict]:
             "presentment",
             "high",
             f"No PayPal element found on the cart page ({viewports}); "
-            "shoppers only see PayPal at the final checkout step.",
+            + ("shoppers only see PayPal at the final checkout step."
+               if store_offers_paypal(scan_data)
+               else "this store does not seem to offer PayPal anywhere."),
             _first_screenshot(cart_pages),
         )
     ]
@@ -137,7 +156,7 @@ def check_paypal_on_cart(scan_data: dict) -> list[dict]:
 
 def check_paypal_on_product(scan_data: dict) -> list[dict]:
     """Flag stores where no PayPal button appears on any product page."""
-    product_pages = get_pages(scan_data, "product")
+    product_pages = verified_pages(get_pages(scan_data, "product"))
     if not product_pages or any(_has_paypal(page) for page in product_pages):
         return []
     return [
@@ -146,7 +165,9 @@ def check_paypal_on_product(scan_data: dict) -> list[dict]:
             "No PayPal button on the product page",
             "presentment",
             "medium",
-            "Shoppers must go to the cart or checkout before PayPal appears.",
+            "Shoppers must go to the cart or checkout before PayPal appears."
+            if store_offers_paypal(scan_data)
+            else "No PayPal on the product page; this store does not seem to offer PayPal anywhere.",
             _first_screenshot(product_pages),
         )
     ]

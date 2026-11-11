@@ -9,7 +9,10 @@ def test_reached_letters_and_verdicts():
                         "mobile": {"product": True, "cart": False, "checkout": True}}}
     assert trial.reached_text(good) == "desktop PCK / mobile P-K"
     assert trial.verdict(good) == "GOOD for demo"
-    assert trial.verdict(dict(good, sdk="none")) == "partial (some pages not reached)"
+    # All pages reached but the store doesn't use PayPal: say so, not "pages not reached".
+    assert trial.verdict(dict(good, sdk="none")) == "reached, but no PayPal found"
+    cart_missing = dict(good, reached={"desktop": {"product": True, "cart": False, "checkout": False}})
+    assert trial.verdict(cart_missing) == "PayPal found, but the cart/checkout could not be reached"
     assert trial.verdict(dict(good, error="blocked")) == "skip (scan failed)"
 
 

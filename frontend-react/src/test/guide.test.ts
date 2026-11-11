@@ -45,3 +45,22 @@ describe("nextStep", () => {
     expect(nextStep({ ...done, passed: true }, "/proof", "live").cta?.to).toBe("/audit");
   });
 });
+
+describe("real stores", () => {
+  it("only our example stores count as fixable", async () => {
+    const { isExampleStore } = await import("@/components/app/Guide");
+    expect(isExampleStore("http://localhost:8101")).toBe(true);
+    expect(isExampleStore("http://127.0.0.1:8102/")).toBe(true);
+    expect(isExampleStore("https://demo.paypal.com/us/demo/home")).toBe(false);
+    expect(isExampleStore("http://localhost:3000")).toBe(false);
+    expect(isExampleStore("")).toBe(false);
+  });
+
+  it("after a real-store scan, explains Fix needs the code and points to the example store", () => {
+    const s = nextStep({ ...base, scan: "success", issues: 3, realStore: true }, "/audit", "live");
+    expect(s.text).toMatch(/needs the store's code/);
+    expect(s.cta).toEqual({ label: "See recommendations", to: "/recommendations" });
+    // On the recommendations page the note there carries the "Scan the example store" button.
+    expect(nextStep({ ...base, scan: "success", issues: 3, realStore: true }, "/recommendations", "live").cta).toBeUndefined();
+  });
+});

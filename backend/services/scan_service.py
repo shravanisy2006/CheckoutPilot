@@ -103,6 +103,9 @@ def _map_page_to_contract(page: dict, scan_id: str) -> dict:
         "screenshot_url": screenshot_url,
         "paypal_found": paypal_found,
         "paypal_visible_without_scroll": paypal_visible_without_scroll,
+        # False = the scanner could not really reach this page (blank, or e.g. an empty cart),
+        # so no "PayPal missing here" finding is made from it.
+        "verified": bool(page.get("verified", True)),
     }
 
 
