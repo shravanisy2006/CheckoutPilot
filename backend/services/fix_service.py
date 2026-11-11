@@ -13,7 +13,7 @@ from urllib.parse import urlparse
 from backend.schemas.fix import FixRequest
 from backend.schemas.models import ModuleError
 from backend.services import scan_service, verify_service
-from demo_stores.serve import KNOWN_STORES, resolve_store
+from demo_stores.serve import KNOWN_STORES, resolve_store, start_store, stop_store
 
 FIX_NO_STORE = "FIX_NO_STORE"
 FIX_BUSY = "FIX_BUSY"
@@ -21,6 +21,8 @@ FIX_FAILED = "FIX_FAILED"
 SCAN_NOT_FOUND = "SCAN_NOT_FOUND"
 NO_ISSUES_SELECTED = "NO_ISSUES_SELECTED"
 INVALID_ISSUE_IDS = "INVALID_ISSUE_IDS"
+FIX_NOT_FOUND = "FIX_NOT_FOUND"
+RESCAN_FAILED = "RESCAN_FAILED"
 
 _fixes: dict[str, dict] = {}
 _lock = threading.Lock()
@@ -92,3 +94,45 @@ def run_fix(request: FixRequest) -> dict:
 
 def get_fix(fix_id: str) -> dict | None:
     return _fixes.get(fix_id)
+
+
+def rescan_fix(fix_id: str) -> dict:
+    """Re-measure: scan the code agent's patched copy with the same scanner as the original.
+
+    The copy is started on a free local port, scanned (product -> cart -> checkout, desktop and
+    mobile), then stopped. The result is kept with the fix (fix["rescan"]), so the dashboard can
+    compare the original store with the fixed one: health score, issues resolved, screenshots.
+    """
+    from pathlib import Path
+
+    from backend.schemas.scan import ScanRequest
+
+    fix = _fixes.get(fix_id)
+    if fix is None:
+        raise ModuleError(FIX_NOT_FOUND, f"No fix with id {fix_id}. Generate a fix first.")
+    folder = Path(fix["patched_store_dir"])
+    if not (folder / "app.py").is_file():
+        raise ModuleError(FIX_NOT_FOUND, "The patched copy of this fix is no longer on disk.")
+    if not _lock.acquire(blocking=False):
+        raise ModuleError(FIX_BUSY, "The code agent is busy. Try again in a moment.")
+    port = verify_service._free_port()
+    try:
+        start_store(folder, port)
+        result = scan_service.run_scan(ScanRequest(store_url=f"http://localhost:{port}"))
+    except Exception as error:  # store did not start, browser problem, ...
+        raise ModuleError(RESCAN_FAILED, f"Could not re-scan the fixed copy: {error}") from error
+    finally:
+        try:
+            stop_store(port)
+        finally:
+            _lock.release()
+
+    rescan = result.model_dump() if hasattr(result, "model_dump") else dict(result)
+    if rescan.get("status") != "completed":
+        raise ModuleError(RESCAN_FAILED, "The re-scan of the fixed copy did not complete: "
+                                         + "; ".join(map(str, rescan.get("warnings") or []))[:300])
+    rescan["rescan_of_fix"] = fix_id
+    rescan["original_scan_id"] = fix.get("scan_id", "")
+    fix["rescan"] = rescan
+    return rescan
+

@@ -8,6 +8,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { useCheckout } from "@/lib/checkout/store";
+import { BeforeAfter, compareScans, ImpactEstimator } from "@/components/app/Results";
 import {
   EmptyState,
   ErrorBlock,
@@ -42,7 +43,7 @@ export const Route = createFileRoute("/proof")({
 });
 
 function ProofPage() {
-  const { verify, fix, scan, startVerify, mode } = useCheckout();
+  const { verify, fix, scan, startVerify, mode, rescan, startRescan } = useCheckout();
   const v = verify.data;
 
   const generatePDF = async () => {
@@ -279,6 +280,20 @@ function ProofPage() {
       }
     }
 
+    // --- Re-measured (the fixed copy scanned again) ---
+    if (scan.data && rescan.data) {
+      const r = compareScans(scan.data, rescan.data);
+      newPageIfNeeded(40);
+      sectionHeader("Re-measured After the Fix");
+      bodyText(
+        `Health ${scan.data.health_score}/100 before -> ${rescan.data.health_score}/100 after ` +
+          `(${r.delta >= 0 ? "+" : ""}${r.delta}); ${r.fixedCount} of ${r.changes.length} issues fixed. ` +
+          "Both scans use the same scanner; the after scan ran on the code agent's fixed copy.",
+        { color: [41, 37, 36] },
+      );
+      r.changes.forEach((c) => bodyText(`${c.fixed ? "Fixed" : "Still open"}: ${c.title}`, { indent: 8, size: 9 }));
+    }
+
     // --- Footer ---
     y += 10;
     doc.setFont("helvetica", "normal");
@@ -443,6 +458,11 @@ function ProofPage() {
               </div>
             </Panel>
           </div>
+
+          {v.passed && scan.data && (
+            <BeforeAfter before={scan.data} rescan={rescan} onRetry={() => void startRescan()} />
+          )}
+          {v.passed && <ImpactEstimator />}
         </div>
       )}
     </div>

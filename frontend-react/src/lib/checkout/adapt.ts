@@ -130,6 +130,13 @@ export function adaptScan(raw: Raw, apiBase = ""): ScanResult {
     created_at: raw["scanned_at"] ?? new Date().toISOString(),
     paypal_sdk_version: raw["paypal_sdk_version"] ?? raw["detected_sdk_version"] ?? null,
     warnings: (raw["warnings"] ?? []).map(String),
+    owner_summary:
+      raw["owner_summary"] && typeof raw["owner_summary"]["text"] === "string" && raw["owner_summary"]["text"]
+        ? {
+            text: String(raw["owner_summary"]["text"]),
+            generated_by: raw["owner_summary"]["generated_by"] === "ai" ? "ai" : "template",
+          }
+        : null,
   };
 }
 

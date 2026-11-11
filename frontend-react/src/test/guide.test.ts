@@ -41,6 +41,7 @@ describe("nextStep", () => {
   it("finished: passed or failed is said honestly", () => {
     const done = { ...base, scan: "success", fix: "success", verify: "success" };
     expect(nextStep({ ...done, passed: true }, "/proof", "live").text).toMatch(/took a Sandbox payment/);
+    expect(nextStep({ ...done, passed: true }, "/proof", "live").text).toMatch(/before\/after/);
     expect(nextStep({ ...done, passed: false }, "/proof", "live").text).toMatch(/did not pass/);
     expect(nextStep({ ...done, passed: true }, "/proof", "live").cta?.to).toBe("/audit");
   });

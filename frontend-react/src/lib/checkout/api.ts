@@ -89,6 +89,14 @@ export async function runVerify(fixId: string, onProgress: OnProgress): Promise<
   return adaptVerification(raw, API_BASE_URL);
 }
 
+/** RE-MEASURE: POST /api/fix/{id}/rescan scans the code agent's patched copy with the same scanner. */
+export async function runRescan(fixId: string, onProgress: OnProgress): Promise<ScanResult> {
+  onProgress(10, "Scanning the fixed copy of the store (about 10-60 seconds)");
+  const raw = await call(`/api/fix/${encodeURIComponent(fixId)}/rescan`, {}, onProgress,
+    "The backend has no re-scan endpoint yet. Update the backend, or use Demo Mode.");
+  return adaptScan(raw, API_BASE_URL);
+}
+
 export async function pollJob<T>(
   jobId: string,
   onUpdate: (job: Job<T>) => void,

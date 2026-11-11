@@ -114,3 +114,29 @@ h2 { font-size: 1.2rem; margin: 0 0 16px; }
   .product-image { min-height: 220px; }
   main { padding: 20px 16px 48px; }
 }
+
+/* --- Catalogue: store menu, product grid, product cards (shared by both demo stores) --- */
+.site-nav { display: flex; gap: 18px; font-family: Arial, sans-serif; font-size: 0.95rem; }
+.site-nav a { text-decoration: none; color: var(--muted); }
+.site-nav a:hover, .site-nav a.active { color: var(--ink); }
+.site-nav a.active { font-weight: bold; }
+.breadcrumb { font-family: Arial, sans-serif; font-size: 0.85rem; color: var(--muted); margin: 0 0 12px; }
+.breadcrumb a { color: var(--muted); }
+.product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; margin-top: 16px; }
+.product-card { position: relative; background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+  padding: 16px; display: flex; flex-direction: column; gap: 6px; }
+.product-card-image { display: flex; justify-content: center; background: var(--bg); border-radius: 8px; padding: 8px; }
+.product-card h3 { font-size: 1rem; margin: 6px 0 0; }
+.product-card h3 a { color: var(--ink); text-decoration: none; }
+.product-card .price { margin: 0; }
+.product-card .badge { position: absolute; top: 12px; left: 12px; background: var(--accent); color: var(--accent-text);
+  font-family: Arial, sans-serif; font-size: 0.72rem; padding: 2px 8px; border-radius: 999px; }
+.button.small { padding: 8px 12px; font-size: 0.9rem; margin-top: auto; }
+.more { margin-top: 40px; }
+.more h2 { font-size: 1.3rem; margin: 0; }
+/* Phones: keep the header to one row (only "Shop all"), so nothing moves the checkout down. */
+@media (max-width: 760px) {
+  .site-nav { gap: 0; }
+  .site-nav a:not(:first-child) { display: none; }
+  .product-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+}

@@ -56,3 +56,5 @@ class ScanResponse(BaseModel):
     pages: list[dict] = Field(default_factory=list)
     scan_id: str = ""
     warnings: list[str] = Field(default_factory=list)
+    # {"text": "...", "generated_by": "ai" | "template"}: a short summary for the store owner.
+    owner_summary: dict = Field(default_factory=dict)
