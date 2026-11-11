@@ -9,6 +9,7 @@ Everything here is OFF unless its environment variable is set, so local developm
     RATE_LIMIT_PER_HOUR=30      max heavy requests (scan / fix / verify / re-scan) per visitor per hour
     OUTPUTS_MAX_AGE_HOURS=24    delete screenshots and patched copies older than this
     ASYNC_JOBS=true             long steps answer with a job id the dashboard polls (see jobs.py)
+    FREE_TIER=true              fit into a 512 MB free plan (see free_tier.py)
 """
 
 import os
@@ -21,7 +22,7 @@ from pathlib import Path
 from fastapi import Request
 from fastapi.responses import FileResponse, JSONResponse, Response
 
-from backend.core import jobs
+from backend.core import free_tier, jobs
 
 
 def _int_env(name: str, default: int = 0) -> int:
@@ -51,13 +52,15 @@ def start_demo_stores() -> list[str]:
         return []
     from demo_stores.serve import KNOWN_STORES, STORES_DIR, start_store
 
-    return [start_store(STORES_DIR / folder, port) for folder, port in KNOWN_STORES.values()]
+    start = free_tier.start_store_in_process if free_tier.enabled() else start_store
+    return [start(STORES_DIR / folder, port) for folder, port in KNOWN_STORES.values()]
 
 
 def stop_demo_stores() -> None:
     from demo_stores.serve import stop_all
 
     stop_all()
+    free_tier.stop_stores_in_process()
 
 
 # ------------------------------------------------------------ rate limit ---
@@ -151,7 +154,7 @@ def make_middleware(outputs_dir: Path):
     async def hosting_middleware(request: Request, call_next):
         if is_heavy(request.method, request.url.path):
             if jobs.is_internal(request):          # a job running its own step: already counted
-                return await call_next(request)
+                return await _run(call_next, request)
             allowed, wait = limiter.allow(client_ip(request))
             if not allowed:
                 minutes = max(1, round(wait / 60))
@@ -164,9 +167,17 @@ def make_middleware(outputs_dir: Path):
             maybe_prune(outputs_dir)
             if jobs.enabled():
                 return await jobs.start(request)
+            return await _run(call_next, request)
         return await call_next(request)
 
     return hosting_middleware
+
+
+async def _run(call_next, request: Request):
+    """Run a heavy step; on a small free plan, one at a time (two browsers never share 512 MB)."""
+    if free_tier.enabled():
+        return await free_tier.run_one_at_a_time(call_next, request)
+    return await call_next(request)
 
 
 # -------------------------------------------------------------- dashboard ---
@@ -184,8 +195,8 @@ def dashboard_response(folder: Path, path: str) -> Response:
     if path.startswith(("api/", "files/")) or path in ("api", "files", "docs", "openapi.json"):
         return JSONResponse(status_code=404, content={"detail": "Not Found"})
     clean = path.strip("/")
-    # The file itself (assets), then the page pre-drawn for this route (audit/index.html).
-    for name in ([clean, f"{clean}/index.html"] if clean else ["index.html"]):
+    # The file itself (assets), then the page pre-drawn for this route (audit.html or audit/index.html).
+    for name in ([clean, f"{clean}.html", f"{clean}/index.html"] if clean else ["index.html"]):
         candidate = (folder / name).resolve()
         if candidate.is_relative_to(folder) and candidate.is_file():
             return FileResponse(candidate)

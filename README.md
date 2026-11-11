@@ -135,13 +135,14 @@ cd frontend-react && npm test                       # dashboard tests
 | Real PayPal Sandbox payment (PROVE) | simulated, clearly labelled | ✅ real Sandbox order, checked with the Orders API |
 | Dashboard Demo mode | ✅ | ✅ |
 
-### Hosted version (Azure)
+### Hosted version (free: Vercel + Render)
 
-The whole app (dashboard, API and example stores) also runs as one web service from the
-[`Dockerfile`](Dockerfile). A GitHub Action builds the image
-(`ghcr.io/shravanisy2006/checkoutpilot`) and an **Azure App Service** Web App runs it, with a
-per-visitor rate limit for the public demo. Step by step: [`docs/deploy_azure.md`](docs/deploy_azure.md).
-The same image also deploys on Render: [`docs/deploy_render.md`](docs/deploy_render.md).
+- **Dashboard on Vercel** (static build, Demo mode always on): [`frontend-react/vercel.json`](frontend-react/vercel.json)
+- **Backend on Render** (free web service, Docker): [`render.yaml`](render.yaml), with `FREE_TIER=true`
+  so the scanner, verifier and example stores fit the free plan, and a per-visitor rate limit.
+
+Step by step: [`docs/deploy_vercel_render.md`](docs/deploy_vercel_render.md). The same Docker image
+also runs as one service on Azure App Service: [`docs/deploy_azure.md`](docs/deploy_azure.md).
 
 ## The demo stores
 
@@ -174,7 +175,7 @@ Prices are always calculated on the server from item IDs; the browser never send
 | Frontend | React dashboard (`frontend-react/`, Vite + TanStack); legacy Streamlit page in `frontend/` |
 | Tables in the dashboard | **AG Grid** Community: sortable, filterable "All findings" grid on the Audit page |
 | API docs and SDKs | **APIMatic**: developer portal and client SDKs generated from [`docs/openapi.json`](docs/openapi.json) (see [`docs/apimatic.md`](docs/apimatic.md)) |
-| Hosting | Docker (Playwright image) on **Azure App Service**; also deployable on Render via [`render.yaml`](render.yaml) |
+| Hosting | Dashboard on **Vercel**; backend as a Docker web service on **Render** ([`render.yaml`](render.yaml)); also runs on Azure App Service |
 | Tests | pytest (300+ tests) and Vitest (dashboard) |
 
 ## Project structure

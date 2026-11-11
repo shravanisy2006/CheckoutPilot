@@ -8,6 +8,7 @@ Then open:
     http://localhost:8000/docs   (interactive API documentation)
 """
 
+import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -16,7 +17,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from backend.api.router import api_router
-from backend.core import hosting, jobs
+from backend.core import free_tier, hosting, jobs
 from backend.core.config import settings
 
 API_DESCRIPTION = """
@@ -41,6 +42,7 @@ OPENAPI_TAGS = [
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     """Hosted mode (START_DEMO_STORES=true): run the example stores inside this service."""
+    free_tier.apply()  # FREE_TIER=true: low-memory settings for a 512 MB free plan (off by default)
     hosting.start_demo_stores()
     yield
     hosting.stop_demo_stores()
@@ -57,22 +59,24 @@ app = FastAPI(
     contact={"name": "CheckoutPilot team", "url": "https://github.com/shravanisy2006/CheckoutPilot"},
 )
 
-# CORS lets the Streamlit frontend (a different port) call this API.
+# Hosted mode: per-visitor limits on scan/fix/verify and clean-up of old screenshots (off locally).
+app.middleware("http")(hosting.make_middleware(Path("outputs")))
+
+# CORS is added last so it wraps everything (also the hosting middleware's 202/429 answers).
+# CORS_ORIGIN_REGEX lets a separately hosted dashboard call this API, e.g. https://.*\.vercel\.app
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
+    allow_origin_regex=os.getenv("CORS_ORIGIN_REGEX") or None,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Hosted mode: per-visitor limits on scan/fix/verify and clean-up of old screenshots (off locally).
-app.middleware("http")(hosting.make_middleware(Path("outputs")))
-
 
 @app.get("/api/jobs/{job_id}", include_in_schema=False)
 def job_status(job_id: str):
-    """Progress of a long step (only used when ASYNC_JOBS=true, e.g. on Azure)."""
+    """Progress of a long step (only used when ASYNC_JOBS=true, i.e. on a hosted server)."""
     job = jobs.get(job_id)
     if job is None:
         raise HTTPException(status_code=404, detail="Job not found (the server may have restarted).")

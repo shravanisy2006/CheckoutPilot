@@ -18,7 +18,10 @@ export default defineConfig({
     tanstackStart({
       server: { entry: "server" },
       // Every page (/, /audit, /recommendations, /fix, /proof) is pre-drawn to its own HTML file.
-      ...(STATIC_BUILD ? { spa: { enabled: true }, prerender: { enabled: true, crawlLinks: true } } : {}),
+      // Files are audit.html etc. (not audit/index.html), so hosts serve /audit without adding a "/".
+      ...(STATIC_BUILD
+        ? { spa: { enabled: true }, prerender: { enabled: true, crawlLinks: true, autoSubfolderIndex: false } }
+        : {}),
     }),
     tailwindcss(),
     react(),
