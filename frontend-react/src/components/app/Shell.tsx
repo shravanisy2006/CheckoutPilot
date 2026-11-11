@@ -4,6 +4,8 @@ import { FileCode2, Menu, ScanSearch, ShieldCheck, Sparkles, X } from "lucide-re
 import { cn } from "@/lib/utils";
 import { useCheckout } from "@/lib/checkout/store";
 import { API_BASE_URL } from "@/lib/checkout/api";
+import { Toaster } from "@/components/ui/sonner";
+import { GuideBar, HowItWorksDialog, useFirstVisitHelp, useStepToasts } from "./Guide";
 
 const HomeIcon = () => (
   <svg
@@ -109,9 +111,11 @@ function NavTabs() {
 
 export function Shell({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
-  const { mode } = useCheckout();
+  const { mode, setMode } = useCheckout();
   const path = useRouterState({ select: (s) => s.location.pathname });
   const isLanding = path === "/";
+  const [helpOpen, setHelpOpen] = useFirstVisitHelp(!isLanding);
+  useStepToasts();
 
   return (
     <div className="min-h-screen bg-background">
@@ -122,7 +126,10 @@ export function Shell({ children }: { children: ReactNode }) {
               <Link to="/">
                 <Brand />
               </Link>
-              <NavTabs />
+              {/* Phones use the menu button instead (the tabs don't fit). */}
+              <div className="hidden md:block">
+                <NavTabs />
+              </div>
             </div>
             <div className="flex items-center gap-4">
               <ModeToggle />
@@ -154,7 +161,9 @@ export function Shell({ children }: { children: ReactNode }) {
                 <X className="h-5 w-5" />
               </button>
             </div>
-            <NavTabs />
+            <div className="[&>div]:flex-col [&>div]:items-stretch" onClick={() => setOpen(false)}>
+              <NavTabs />
+            </div>
             <div className="mt-6">
               <ModeToggle />
             </div>
@@ -163,14 +172,22 @@ export function Shell({ children }: { children: ReactNode }) {
       )}
 
       <main>
+        {!isLanding && <GuideBar onHelp={() => setHelpOpen(true)} />}
         {!isLanding && mode === "demo" && (
           <div className="max-w-6xl mx-auto px-4 py-2">
-            <div className="demo-banner">
-              <span className="font-semibold">Demo Mode</span> — replays real results recorded on our
-              demo store (Inkwell &amp; Co., localhost:8101). No new scan is run.
+            <div className="demo-banner flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <span>
+                <span className="font-semibold">Demo Mode</span> — replays real results recorded on our
+                demo store (Inkwell &amp; Co., localhost:8101). No new scan is run.
+              </span>
+              <button className="btn-outline h-8 px-3 text-xs shrink-0" onClick={() => setMode("live")}>
+                Switch to Live (real scan + Sandbox payment)
+              </button>
             </div>
           </div>
         )}
+        <HowItWorksDialog open={helpOpen} onOpenChange={setHelpOpen} />
+        <Toaster position="bottom-right" closeButton />
         <div className="mx-auto max-w-6xl px-4 py-6 md:px-8 md:py-10">{children}</div>
       </main>
     </div>

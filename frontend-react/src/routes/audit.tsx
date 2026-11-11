@@ -17,6 +17,7 @@ import {
 } from "@/components/app/ui";
 import type { Severity } from "@/lib/checkout/types";
 import { IssuesGrid } from "@/components/app/IssuesGrid";
+import { EXAMPLE_STORES } from "@/components/app/Guide";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/audit")({
@@ -43,7 +44,7 @@ const SEVS: Severity[] = ["high", "medium", "low"];
 
 function AuditPage() {
   const { scan, startScan, mode } = useCheckout();
-  const [url, setUrl] = useState(mode === "demo" ? "https://shop.example.com" : "");
+  const [url, setUrl] = useState(mode === "demo" ? EXAMPLE_STORES[0].url : "");
   const [mobile, setMobile] = useState(true);
   const [touched, setTouched] = useState(false);
   const valid = isValidStoreUrl(url);
@@ -107,6 +108,36 @@ function AuditPage() {
             <ScanSearch className="h-4 w-4" /> {running ? "Scanning…" : "Start scan"}
           </button>
         </form>
+
+        <div className="mt-4 border-t border-border pt-4" data-testid="example-stores">
+          <p className="text-xs text-muted-foreground mb-2">
+            No store handy? Try our example store, <b className="text-foreground">Inkwell &amp; Co.</b> It runs on the
+            CheckoutPilot server, so <span className="font-mono">localhost</span> here means our server, not your
+            computer. Fix and Proof use this store, because they need its code.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {EXAMPLE_STORES.map((ex) => (
+              <button
+                key={ex.url}
+                type="button"
+                disabled={running}
+                onClick={() => {
+                  setUrl(ex.url);
+                  setTouched(false);
+                }}
+                className={cn(
+                  "rounded-lg border px-3 py-2 text-left transition hover:border-primary/50",
+                  url === ex.url ? "border-primary bg-primary/5" : "border-border bg-card",
+                )}
+              >
+                <span className="block text-sm font-medium text-foreground">{ex.label}</span>
+                <span className="block text-xs text-muted-foreground">
+                  <span className="font-mono">{ex.url}</span> · {ex.hint}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
       </Panel>
 
       <div className="space-y-8">
@@ -114,7 +145,7 @@ function AuditPage() {
           <EmptyState
             icon={ScanSearch}
             title="No scan yet"
-            description="Enter a store URL above to audit its PayPal checkout."
+            description="Paste a store URL above, or pick the example store, then press Start scan."
           />
         )}
         {running && (
