@@ -271,6 +271,9 @@ def run_scan(request: ScanRequest) -> ScanResponse:
             "fix": None,
             "verification": None,
         }
+        # A plain-language summary for the store owner (Gemini, with a template fallback).
+        from ai_engine.summary import summarize_for_owner
+        record["owner_summary"] = summarize_for_owner(record)
         _reports[scan_id] = record
         return ScanResponse(**record)
 

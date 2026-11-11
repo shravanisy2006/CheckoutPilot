@@ -50,6 +50,8 @@ export interface ScanResult {
   created_at?: string;
   paypal_sdk_version?: string | null;
   warnings?: string[];
+  /** Plain-language summary for the store owner (Gemini with guardrails, or a template). */
+  owner_summary?: { text: string; generated_by: "ai" | "template" } | null;
 }
 
 export interface FileChange {

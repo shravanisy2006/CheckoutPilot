@@ -1,7 +1,7 @@
 import type React from "react";
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
-import { ApiError, runFix, runScan, runVerify } from "./api";
-import { demoFix, demoScan, demoVerification, FIX_STAGES, SCAN_STAGES, VERIFY_STAGES } from "./demo";
+import { ApiError, runFix, runRescan, runScan, runVerify } from "./api";
+import { demoFix, demoRescan, demoScan, demoVerification, FIX_STAGES, RESCAN_STAGES, SCAN_STAGES, VERIFY_STAGES } from "./demo";
 import type { FixResult, Mode, ScanResult, VerificationResult } from "./types";
 
 export type Phase = "idle" | "running" | "success" | "error";
@@ -20,12 +20,15 @@ interface Ctx {
   scan: Task<ScanResult>;
   fix: Task<FixResult>;
   verify: Task<VerificationResult>;
+  /** The fixed copy, scanned again: health before -> after. */
+  rescan: Task<ScanResult>;
   selected: string[];
   toggleSelected: (id: string) => void;
   setSelected: (ids: string[]) => void;
   startScan: (url: string, includeMobile: boolean) => Promise<void>;
   startFix: () => Promise<void>;
   startVerify: () => Promise<void>;
+  startRescan: () => Promise<void>;
 }
 // Keep one context instance across hot reloads so provider and consumers always match.
 const g = globalThis as unknown as { __checkoutCtx?: React.Context<Ctx | null> };
@@ -44,6 +47,8 @@ export function CheckoutProvider({ children }: { children: ReactNode }) {
   const [scan, setScan] = useState<Task<ScanResult>>(idle);
   const [fix, setFix] = useState<Task<FixResult>>(idle);
   const [verify, setVerify] = useState<Task<VerificationResult>>(idle);
+  const [rescan, setRescan] = useState<Task<ScanResult>>(idle);
+  const rescanning = useRef(false);
   const [selected, setSelected] = useState<string[]>([]);
   const gen = useRef(0);
   // A Sandbox verification makes real test payments and takes 1-2 minutes: never start a second one.
@@ -70,6 +75,7 @@ export function CheckoutProvider({ children }: { children: ReactNode }) {
     setScan(idle());
     setFix(idle());
     setVerify(idle());
+    setRescan(idle());
     setSelected([]);
   };
 
@@ -80,6 +86,7 @@ export function CheckoutProvider({ children }: { children: ReactNode }) {
       setScan({ phase: "running", progress: 0, stage: "Queued" });
       setFix(idle());
       setVerify(idle());
+      setRescan(idle());
       setSelected([]);
       try {
         let data: ScanResult;
@@ -106,6 +113,7 @@ export function CheckoutProvider({ children }: { children: ReactNode }) {
     const ok = () => g === gen.current;
     setFix({ phase: "running", progress: 0, stage: "Queued" });
     setVerify(idle());
+    setRescan(idle());
     try {
       let data: FixResult;
       if (mode === "demo") {
@@ -142,10 +150,37 @@ export function CheckoutProvider({ children }: { children: ReactNode }) {
     }
   }, [mode, scan.data, fix.data]);
 
+  const startRescan = useCallback(async () => {
+    if (!fix.data || rescanning.current) return;
+    rescanning.current = true;
+    const g = gen.current; // a re-scan never cancels the proof; a new scan or fix cancels it
+    const ok = () => g === gen.current;
+    setRescan({ phase: "running", progress: 0, stage: "Starting the fixed copy" });
+    try {
+      let data: ScanResult;
+      if (mode === "demo") {
+        await simulate(RESCAN_STAGES, (p, s) => ok() && setRescan((t) => ({ ...t, progress: p, stage: s })));
+        data = demoRescan();
+      } else {
+        data = await runRescan(fix.data.fix_id, (p, s) => ok() && setRescan((t) => ({ ...t, progress: p ?? t.progress, stage: s ?? t.stage })));
+      }
+      if (ok()) setRescan({ phase: "success", progress: 100, data });
+    } catch (e) {
+      if (ok()) setRescan({ phase: "error", progress: 0, error: msg(e) });
+    } finally {
+      rescanning.current = false;
+    }
+  }, [mode, fix.data]);
+
+  // Re-measure automatically once the proof passes: Find -> Fix -> Prove -> Re-measure.
+  useEffect(() => {
+    if (verify.phase === "success" && verify.data?.passed && rescan.phase === "idle") void startRescan();
+  }, [verify.phase, verify.data?.passed, rescan.phase, startRescan]);
+
   const toggleSelected = (id: string) => setSelected((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
 
   return (
-    <C.Provider value={{ mode, setMode, scan, fix, verify, selected, toggleSelected, setSelected, startScan, startFix, startVerify }}>
+    <C.Provider value={{ mode, setMode, scan, fix, verify, rescan, selected, toggleSelected, setSelected, startScan, startFix, startVerify, startRescan }}>
       {children}
     </C.Provider>
   );

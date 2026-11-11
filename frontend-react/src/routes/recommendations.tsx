@@ -1,6 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { ScanSearch, Sparkles, Wand2 } from "lucide-react";
 import { isExampleStore } from "@/components/app/Guide";
+import { ImpactEstimator } from "@/components/app/Results";
 import { useCheckout } from "@/lib/checkout/store";
 import {
   EmptyState,
@@ -100,6 +101,7 @@ function RecsPage() {
         </Panel>
         </div>
       )}
+      {realStore && <ImpactEstimator />}
 
       <div className="mb-4 flex items-center justify-between text-sm text-muted-foreground">
         <span>

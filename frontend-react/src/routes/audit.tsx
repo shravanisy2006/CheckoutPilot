@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { ArrowRight, Globe, ScanSearch, Smartphone } from "lucide-react";
+import { ArrowRight, Globe, ScanSearch, Smartphone, Sparkles } from "lucide-react";
 import { useCheckout } from "@/lib/checkout/store";
 import { isValidStoreUrl } from "@/lib/checkout/api";
 import {
@@ -186,6 +186,24 @@ function AuditPage() {
 
         {data && scan.phase === "success" && (
           <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
+            {data.owner_summary && (
+              <div data-testid="owner-summary">
+                <Panel className="p-5 border-primary/20">
+                  <div className="flex items-start gap-3">
+                    <Sparkles className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+                    <div>
+                      <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                        In plain words{" "}
+                        <span className="ml-1 rounded-full bg-muted px-2 py-0.5 normal-case tracking-normal">
+                          {data.owner_summary.generated_by === "ai" ? "written by Gemini from the findings" : "summary"}
+                        </span>
+                      </p>
+                      <p className="mt-2 text-[15px] leading-relaxed text-foreground">{data.owner_summary.text}</p>
+                    </div>
+                  </div>
+                </Panel>
+              </div>
+            )}
             {/* Health score + severity summary side by side */}
             <div className="grid gap-5 lg:grid-cols-[1.35fr_2fr]">
               <Panel className="p-5">

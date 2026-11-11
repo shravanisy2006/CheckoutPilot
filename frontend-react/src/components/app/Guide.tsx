@@ -192,7 +192,7 @@ export function nextStep(
     done,
     busy: false,
     text: s.passed
-      ? "All done: the fixed checkout took a Sandbox payment. Download the PDF report, or scan another store."
+      ? "Proven: the fixed checkout took a Sandbox payment. See the before/after below, try your own numbers, or download the PDF report."
       : "The fixed checkout did not pass. Nothing should be approved; see the evidence for why.",
     cta: path === "/proof" ? { label: "Scan another store", to: "/audit" } : { label: "See proof", to: "/proof" },
   };

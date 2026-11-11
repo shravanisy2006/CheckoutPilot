@@ -13,6 +13,8 @@ _STATUS = {
     fix_service.FIX_FAILED: 500,
     fix_service.SCAN_NOT_FOUND: 404,
     fix_service.FIX_NO_STORE: 400,
+    fix_service.FIX_NOT_FOUND: 404,
+    fix_service.RESCAN_FAILED: 500,
 }
 
 
@@ -39,3 +41,17 @@ def get_fix(fix_id: str) -> dict:
     if result is None:
         raise HTTPException(status_code=404, detail={"code": "NOT_FOUND", "message": "No such fix."})
     return result
+
+
+@router.post("/{fix_id}/rescan")
+def rescan(fix_id: str) -> dict:
+    """Re-measure the fix: scan the patched copy with the same scanner as the original store.
+
+    Returns a scan result (same shape as POST /api/scan) for the fixed copy, so the dashboard can
+    show health before -> after and which issues the fix resolved. Takes about as long as a scan.
+    """
+    try:
+        return fix_service.rescan_fix(fix_id)
+    except ModuleError as error:
+        status = _STATUS.get(error.code, 400)
+        raise HTTPException(status_code=status, detail={"code": error.code, "message": error.message}) from error

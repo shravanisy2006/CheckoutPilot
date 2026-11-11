@@ -19,6 +19,7 @@ import argparse
 import os
 import shutil
 import signal
+import socket
 import subprocess
 import sys
 import time
@@ -147,15 +148,40 @@ def start(command: list[str], cwd: Path, env: dict, log_name: str) -> subprocess
     return subprocess.Popen(command, cwd=cwd, env=env, stdout=log, stderr=subprocess.STDOUT, **kwargs)
 
 
+def port_in_use(port: int) -> bool:
+    with socket.socket() as sock:
+        sock.settimeout(0.5)
+        return sock.connect_ex(("127.0.0.1", port)) == 0
+
+
+def stop_old_command(ports: list[int]) -> str:
+    """The command that stops whatever is still listening on these ports."""
+    if IS_WINDOWS:
+        return ("Get-NetTCPConnection -State Listen -LocalPort " + ",".join(map(str, ports))
+                + " | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force }")
+    return "kill $(lsof -t " + " ".join(f"-i:{p}" for p in ports) + ")"
+
+
+def check_ports_free(dashboard: bool) -> None:
+    """An older CheckoutPilot still running would serve OLD code: stop instead of reusing it."""
+    from demo_stores.serve import KNOWN_STORES
+    ports = [KNOWN_STORES["legacy"][1], KNOWN_STORES["upgraded"][1], BACKEND_PORT] + ([DASHBOARD_PORT] if dashboard else [])
+    busy = [p for p in ports if port_in_use(p)]
+    if busy:
+        raise RuntimeError(
+            f"Port(s) {', '.join(map(str, busy))} are already in use, probably by an earlier CheckoutPilot that is "
+            "still running (it would run old code).\n"
+            "       Close the other terminal running it, or stop it with this command, then try again:\n"
+            f"       {stop_old_command(busy)}")
+
+
 def start_everything(env: dict, dashboard: bool) -> list[tuple[str, subprocess.Popen]]:
     from demo_stores.serve import KNOWN_STORES, _build_command
+    check_ports_free(dashboard)
     started = []
     for name in ("legacy", "upgraded"):
         folder, port = KNOWN_STORES[name]
         url = f"http://localhost:{port}"
-        if wait_for(f"{url}/health", 0.5):
-            say(f"  {name + ' store':<17} {url} (already running)")
-            continue
         proc = start(_build_command(ROOT / "demo_stores" / folder, port), ROOT, env, f"store_{name}")
         if not wait_for(f"{url}/health", 25, proc):
             raise RuntimeError(f"The {name} store did not start (see outputs/logs/store_{name}.log). Is port {port} free?")

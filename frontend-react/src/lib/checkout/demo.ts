@@ -19,6 +19,7 @@ export const SCAN_STAGES = [
   "Ranking issues by impact",
 ];
 export const FIX_STAGES = ["Reading the store's code", "Planning changes", "Upgrading PayPal SDK v5 → v6", "Adding PayPal to the cart", "Preparing the pull request"];
+export const RESCAN_STAGES = ["Starting the fixed copy", "Walking product → cart → checkout", "Measuring the mobile layout", "Scoring the fixed checkout"];
 export const VERIFY_STAGES = ["Starting the store", "Logging in as the Sandbox buyer", "Paying in the PayPal window", "Confirming with the Orders API"];
 
 /** Where Demo Mode's recorded results come from. */
@@ -35,6 +36,13 @@ export const demoFix = (ids: string[]): FixResult => {
     ...fix,
     summary: `${sample.fix.summary} (Recorded result for ${ids.length} selected recommendation(s); no repository was modified in Demo Mode.)`,
   };
+};
+
+/** The recorded re-scan of the fixed copy (the "after" store). */
+export const demoRescan = (): ScanResult => {
+  const raw = (sample as Record<string, unknown>)["rescan_after_fix"];
+  const scan = adaptScan(raw ?? {});
+  return { ...scan, screenshots: { desktop: scan.screenshots?.desktop ?? null, mobile: scan.screenshots?.mobile ?? null } };
 };
 
 export const demoVerification = (): VerificationResult => ({

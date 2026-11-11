@@ -88,7 +88,10 @@ def test_static_files(client):
 def test_products(client):
     data = client.get("/api/products").json()
     assert data["currency"] == "USD"
-    assert {p["id"] for p in data["products"]} == {"brass-pen", "ink-blue"}
+    ids = {p["id"] for p in data["products"]}
+    assert {"brass-pen", "ink-blue"} <= ids and len(ids) >= 12
+    pen = next(p for p in data["products"] if p["id"] == "brass-pen")
+    assert pen["price"] == "35.00" and pen["category"] == "pens"
 
 
 def test_create_order_uses_server_prices(store, client, monkeypatch):

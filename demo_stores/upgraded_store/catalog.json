@@ -1,0 +1,43 @@
+{
+  "categories": [
+    {"id": "pens", "name": "Pens"},
+    {"id": "inks", "name": "Inks"},
+    {"id": "notebooks", "name": "Notebooks"},
+    {"id": "paper", "name": "Paper"},
+    {"id": "accessories", "name": "Accessories"}
+  ],
+  "products": [
+    {"id": "brass-pen", "category": "pens", "name": "Machined Brass Fountain Pen", "price": "35.00", "color": "#b8892f", "badge": "Bestseller",
+     "description": "A compact brass fountain pen with a smooth steel nib. Refillable and built to last."},
+    {"id": "walnut-pen", "category": "pens", "name": "Walnut Wood Fountain Pen", "price": "42.00", "color": "#7a4a2a", "badge": "",
+     "description": "Hand-turned walnut barrel with a medium steel nib and a warm, natural grip."},
+    {"id": "resin-pen", "category": "pens", "name": "Ocean Resin Rollerball", "price": "28.00", "color": "#2b7a8c", "badge": "New",
+     "description": "Swirled blue resin rollerball that writes smoothly with standard refills."},
+    {"id": "dip-pen-set", "category": "pens", "name": "Calligraphy Dip Pen Set", "price": "24.00", "color": "#3b3b45", "badge": "",
+     "description": "Oblique holder with five nibs for lettering, flourishes and practice."},
+    {"id": "ink-blue", "category": "inks", "name": "Midnight Blue Ink, 50 ml", "price": "12.00", "color": "#1f3a7a", "badge": "Bestseller",
+     "description": "Water-based ink that dries quickly and stays vivid."},
+    {"id": "ink-forest", "category": "inks", "name": "Forest Green Ink, 50 ml", "price": "12.00", "color": "#2f6b3a", "badge": "",
+     "description": "A deep green with gentle shading, safe for every fountain pen."},
+    {"id": "ink-oxblood", "category": "inks", "name": "Oxblood Red Ink, 50 ml", "price": "13.00", "color": "#7a1f2b", "badge": "",
+     "description": "Rich dark red that looks great on cream paper."},
+    {"id": "ink-cartridges", "category": "inks", "name": "Ink Cartridges, Pack of 12", "price": "8.00", "color": "#30343f", "badge": "",
+     "description": "Standard international cartridges in black for quick, clean refills."},
+    {"id": "linen-notebook", "category": "notebooks", "name": "A5 Linen Notebook, Dotted", "price": "18.00", "color": "#c9b79c", "badge": "Bestseller",
+     "description": "Lay-flat binding, 192 numbered pages of 100 gsm fountain-pen-friendly paper."},
+    {"id": "pocket-journal", "category": "notebooks", "name": "Pocket Journal, Set of 3", "price": "15.00", "color": "#8c5a3c", "badge": "",
+     "description": "Slim kraft-cover journals that fit in any pocket. Lined, plain and grid."},
+    {"id": "leather-journal", "category": "notebooks", "name": "Refillable Leather Journal", "price": "48.00", "color": "#5a3a22", "badge": "Gift idea",
+     "description": "Full-grain leather cover with one refill included. Ages beautifully."},
+    {"id": "letter-paper", "category": "paper", "name": "Cotton Letter Paper, 50 Sheets", "price": "16.00", "color": "#efe6d2", "badge": "",
+     "description": "Heavyweight cotton paper with a soft deckle feel for letters that last."},
+    {"id": "envelopes", "category": "paper", "name": "Kraft Envelopes, Pack of 25", "price": "9.00", "color": "#b98e5c", "badge": "",
+     "description": "Sturdy kraft envelopes that pair with our letter paper."},
+    {"id": "pen-case", "category": "accessories", "name": "Leather Pen Case, 3 Slots", "price": "26.00", "color": "#6b4226", "badge": "",
+     "description": "Protects three pens on the go with a soft-lined leather sleeve."},
+    {"id": "blotter", "category": "accessories", "name": "Brass Rocker Blotter", "price": "22.00", "color": "#a37b2c", "badge": "",
+     "description": "Classic rocker blotter for clean pages, with refillable blotting paper."},
+    {"id": "converter", "category": "accessories", "name": "Piston Ink Converter", "price": "6.00", "color": "#6b7280", "badge": "",
+     "description": "Fill any standard fountain pen from a bottle of ink."}
+  ]
+}
