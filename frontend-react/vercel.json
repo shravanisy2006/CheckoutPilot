@@ -2,14 +2,8 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
   "installCommand": "npm ci",
-  "buildCommand": "CHECKOUTPILOT_STATIC=1 npm run build",
+  "buildCommand": "CHECKOUTPILOT_STATIC=1 npm run build && cp dist/client/_shell.html dist/client/index.html",
   "outputDirectory": "dist/client",
   "cleanUrls": true,
-  "trailingSlash": false,
-  "rewrites": [
-    {
-      "source": "/(.*)",
-      "destination": "/_shell.html"
-    }
-  ]
+  "trailingSlash": false
 }
