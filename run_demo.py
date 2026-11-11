@@ -10,7 +10,7 @@ It starts:
     legacy demo store     http://localhost:8101   (PayPal SDK v5, the "before")
     upgraded demo store   http://localhost:8102   (PayPal SDK v6, the "after")
     backend API           http://localhost:8000/docs
-    dashboard             http://localhost:5173   (needs Node.js 18+)
+    dashboard             http://localhost:5173   (needs Node.js 20+)
 
 Press Ctrl+C to stop everything.
 """
@@ -76,7 +76,7 @@ def check_setup(env: dict, mock: bool) -> bool:
         browser_ok = False
     line(browser_ok, "Playwright Chromium (for scanning and verifying)", "Run: playwright install chromium")
     npm = shutil.which("npm")
-    line(bool(npm), "Node.js / npm (for the dashboard)", "Install Node.js 18+ from nodejs.org, or use --no-dashboard",
+    line(bool(npm), "Node.js / npm (for the dashboard)", "Install Node.js 20+ from nodejs.org, or use --no-dashboard",
          blocking=False)
 
     if mock:
