@@ -266,7 +266,7 @@ Then open a pull request into `main`. Before opening it: `pytest` passes, you on
 
 | Member | Part |
 |---|---|
-| Shravani Yalagatti ([@shravanisy2006](https://github.com/shravanisy2006)) | AI engine + impact ranker, PayPal integration, demo stores, Sandbox verifier, deployment |
+| Shravani Yalagatti ([@shravanisy2006](https://github.com/shravanisy2006)) | AI engine, PayPal Sandbox |
 | Roshan ([@RoshanS-Dev](https://github.com/RoshanS-Dev)) | Scanner |
 | Purvika ([@purvikapatil20-alt](https://github.com/purvikapatil20-alt)) | Backend API |
 | Aarya ([@aarya3106](https://github.com/aarya3106)) | React dashboard |
