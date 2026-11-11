@@ -1,5 +1,5 @@
 import type React from "react";
-import { createContext, useCallback, useContext, useRef, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { ApiError, runFix, runScan, runVerify } from "./api";
 import { demoFix, demoScan, demoVerification, FIX_STAGES, SCAN_STAGES, VERIFY_STAGES } from "./demo";
 import type { FixResult, Mode, ScanResult, VerificationResult } from "./types";
@@ -49,9 +49,24 @@ export function CheckoutProvider({ children }: { children: ReactNode }) {
   // A Sandbox verification makes real test payments and takes 1-2 minutes: never start a second one.
   const verifying = useRef(false);
 
+  // Remember Demo/Live between visits (read after load, so server and browser render the same first).
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem("cp_mode");
+      if (saved === "live" || saved === "demo") setModeState(saved);
+    } catch {
+      /* storage blocked: keep Demo */
+    }
+  }, []);
+
   const setMode = (m: Mode) => {
     gen.current++; // invalidate in-flight work so results never cross modes
     setModeState(m);
+    try {
+      window.localStorage.setItem("cp_mode", m);
+    } catch {
+      /* ignore */
+    }
     setScan(idle());
     setFix(idle());
     setVerify(idle());
