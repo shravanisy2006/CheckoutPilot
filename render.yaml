@@ -1,0 +1,47 @@
+# Render Blueprint: one web service runs the whole CheckoutPilot demo
+# (dashboard + API + the two example stores). Step-by-step guide: docs/deploy_render.md
+#
+# Secrets (sync: false) are typed into the Render dashboard once; they are never in Git.
+services:
+  - type: web
+    name: checkoutpilot
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    # Chromium (scanner + Sandbox verifier) and two store processes need about 2 GB of memory.
+    plan: standard
+    region: singapore
+    healthCheckPath: /api/health
+    envVars:
+      # --- Secrets: fill these in on Render (Environment tab) ---
+      - key: PAYPAL_CLIENT_ID
+        sync: false
+      - key: PAYPAL_CLIENT_SECRET
+        sync: false
+      - key: PAYPAL_SANDBOX_BUYER_EMAIL       # a US *Personal* Sandbox account
+        sync: false
+      - key: PAYPAL_SANDBOX_BUYER_PASSWORD
+        sync: false
+      - key: GOOGLE_API_KEY                   # Gemini; without it the AI uses rule checks only
+        sync: false
+      # --- Plain settings ---
+      - key: PAYPAL_ENVIRONMENT
+        value: sandbox
+      - key: PAYPAL_API_BASE
+        value: https://api-m.sandbox.paypal.com
+      - key: AI_PROVIDER
+        value: gemini
+      - key: AI_MODEL
+        value: gemini-3.8-flash
+      - key: AI_FALLBACK_MODEL
+        value: gemini-3.5-flash-lite
+      - key: AI_VISION_ENABLED
+        value: "true"
+      - key: MOCK_PAYPAL
+        value: "false"
+      - key: MOCK_VERIFIER
+        value: "false"
+      # Public-demo protection (the Dockerfile has the same defaults).
+      - key: RATE_LIMIT_PER_HOUR
+        value: "30"
+      - key: OUTPUTS_MAX_AGE_HOURS
+        value: "24"

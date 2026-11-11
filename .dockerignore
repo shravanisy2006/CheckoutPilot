@@ -1,0 +1,20 @@
+# Never send secrets or local junk into the image
+.env
+.env.*
+!.env.example
+.git
+**/__pycache__
+**/*.pyc
+venv
+.venv
+outputs
+screenshots
+reports
+stores.txt
+**/node_modules
+frontend-react/dist
+frontend-react/.tanstack
+.pytest_cache
+.vscode
+.idea
+*.log

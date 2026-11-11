@@ -135,6 +135,14 @@ cd frontend-react && npm test                       # dashboard tests
 | Real PayPal Sandbox payment (PROVE) | simulated, clearly labelled | ✅ real Sandbox order, checked with the Orders API |
 | Dashboard Demo mode | ✅ | ✅ |
 
+### Hosted version (Azure)
+
+The whole app (dashboard, API and example stores) also runs as one web service from the
+[`Dockerfile`](Dockerfile). A GitHub Action builds the image
+(`ghcr.io/shravanisy2006/checkoutpilot`) and an **Azure App Service** Web App runs it, with a
+per-visitor rate limit for the public demo. Step by step: [`docs/deploy_azure.md`](docs/deploy_azure.md).
+The same image also deploys on Render: [`docs/deploy_render.md`](docs/deploy_render.md).
+
 ## The demo stores
 
 `demo_stores/` holds one small shop, **Inkwell & Co.**, in two versions:
@@ -166,7 +174,8 @@ Prices are always calculated on the server from item IDs; the browser never send
 | Frontend | React dashboard (`frontend-react/`, Vite + TanStack); legacy Streamlit page in `frontend/` |
 | Tables in the dashboard | **AG Grid** Community: sortable, filterable "All findings" grid on the Audit page |
 | API docs and SDKs | **APIMatic**: developer portal and client SDKs generated from [`docs/openapi.json`](docs/openapi.json) (see [`docs/apimatic.md`](docs/apimatic.md)) |
-| Tests | pytest (220+ tests) and Vitest (dashboard) |
+| Hosting | Docker (Playwright image) on **Azure App Service**; also deployable on Render via [`render.yaml`](render.yaml) |
+| Tests | pytest (300+ tests) and Vitest (dashboard) |
 
 ## Project structure
 
