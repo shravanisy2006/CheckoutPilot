@@ -8,7 +8,7 @@ Everything here is OFF unless its environment variable is set, so local developm
     DASHBOARD_DIR=<folder>      serve the built dashboard (dist/client) from the same URL
     RATE_LIMIT_PER_HOUR=30      max heavy requests (scan / fix / verify / re-scan) per visitor per hour
     OUTPUTS_MAX_AGE_HOURS=24    delete screenshots and patched copies older than this
-    FREE_TIER=true              fit into Render's free plan (see backend/core/free_tier.py)
+    ASYNC_JOBS=true             long steps answer with a job id the dashboard polls (see jobs.py)
 """
 
 import os
@@ -21,7 +21,7 @@ from pathlib import Path
 from fastapi import Request
 from fastapi.responses import FileResponse, JSONResponse, Response
 
-from backend.core import free_tier
+from backend.core import jobs
 
 
 def _int_env(name: str, default: int = 0) -> int:
@@ -51,15 +51,13 @@ def start_demo_stores() -> list[str]:
         return []
     from demo_stores.serve import KNOWN_STORES, STORES_DIR, start_store
 
-    start = free_tier.start_store_in_process if free_tier.enabled() else start_store
-    return [start(STORES_DIR / folder, port) for folder, port in KNOWN_STORES.values()]
+    return [start_store(STORES_DIR / folder, port) for folder, port in KNOWN_STORES.values()]
 
 
 def stop_demo_stores() -> None:
     from demo_stores.serve import stop_all
 
     stop_all()
-    free_tier.stop_stores_in_process()
 
 
 # ------------------------------------------------------------ rate limit ---
@@ -75,8 +73,17 @@ def client_ip(request: Request) -> str:
     """The visitor's address. Render (and most hosts) put it first in X-Forwarded-For."""
     forwarded = request.headers.get("x-forwarded-for", "")
     if forwarded.strip():
-        return forwarded.split(",")[0].strip()
+        return strip_port(forwarded.split(",")[0].strip())
     return request.client.host if request.client else "unknown"
+
+
+def strip_port(address: str) -> str:
+    """Azure sends '1.2.3.4:56789'; the port changes on every request, the visitor does not."""
+    if address.startswith("[") and "]" in address:          # [IPv6]:port
+        return address[1:address.index("]")]
+    if address.count(":") == 1:                               # IPv4:port
+        return address.split(":")[0]
+    return address                                            # IPv4 or bare IPv6
 
 
 class RateLimiter:
@@ -143,6 +150,8 @@ def maybe_prune(root: Path) -> None:
 def make_middleware(outputs_dir: Path):
     async def hosting_middleware(request: Request, call_next):
         if is_heavy(request.method, request.url.path):
+            if jobs.is_internal(request):          # a job running its own step: already counted
+                return await call_next(request)
             allowed, wait = limiter.allow(client_ip(request))
             if not allowed:
                 minutes = max(1, round(wait / 60))
@@ -153,8 +162,8 @@ def make_middleware(outputs_dir: Path):
                                        f"Please try again in about {minutes} min, or use Demo mode."},
                 )
             maybe_prune(outputs_dir)
-            if free_tier.enabled():
-                return await free_tier.run_one_at_a_time(call_next, request)
+            if jobs.enabled():
+                return await jobs.start(request)
         return await call_next(request)
 
     return hosting_middleware

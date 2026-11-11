@@ -11,12 +11,12 @@ Then open:
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from backend.api.router import api_router
-from backend.core import free_tier, hosting
+from backend.core import hosting, jobs
 from backend.core.config import settings
 
 API_DESCRIPTION = """
@@ -41,7 +41,6 @@ OPENAPI_TAGS = [
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     """Hosted mode (START_DEMO_STORES=true): run the example stores inside this service."""
-    free_tier.apply()  # FREE_TIER=true: low-memory settings for Render's free plan
     hosting.start_demo_stores()
     yield
     hosting.stop_demo_stores()
@@ -69,6 +68,16 @@ app.add_middleware(
 
 # Hosted mode: per-visitor limits on scan/fix/verify and clean-up of old screenshots (off locally).
 app.middleware("http")(hosting.make_middleware(Path("outputs")))
+
+
+@app.get("/api/jobs/{job_id}", include_in_schema=False)
+def job_status(job_id: str):
+    """Progress of a long step (only used when ASYNC_JOBS=true, e.g. on Azure)."""
+    job = jobs.get(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found (the server may have restarted).")
+    return job
+
 
 app.include_router(api_router)
 

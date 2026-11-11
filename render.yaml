@@ -1,9 +1,5 @@
-# Render Blueprint: one FREE web service runs the whole CheckoutPilot app
+# Render Blueprint: one web service runs the whole CheckoutPilot demo
 # (dashboard + API + the two example stores). Step-by-step guide: docs/deploy_render.md
-#
-# Free plan = 512 MB memory, 0.1 CPU, sleeps after 15 minutes without visitors (wakes in ~1 min).
-# FREE_TIER=true makes the app fit: stores inside the main process, low-memory Chromium,
-# one scan/fix/proof at a time, longer waits. For a faster server change `plan` to standard.
 #
 # Secrets (sync: false) are typed into the Render dashboard once; they are never in Git.
 services:
@@ -11,7 +7,8 @@ services:
     name: checkoutpilot
     runtime: docker
     dockerfilePath: ./Dockerfile
-    plan: free
+    # Chromium (scanner + Sandbox verifier) and two store processes need about 2 GB of memory.
+    plan: standard
     region: singapore
     healthCheckPath: /api/health
     envVars:
@@ -26,17 +23,6 @@ services:
         sync: false
       - key: GOOGLE_API_KEY                   # Gemini; without it the AI uses rule checks only
         sync: false
-      # --- Free plan: fit into 512 MB / 0.1 CPU ---
-      - key: FREE_TIER
-        value: "true"
-      - key: BROWSER_TIMEOUT_MS
-        value: "90000"
-      - key: BROWSER_NAV_TIMEOUT_MS
-        value: "60000"
-      - key: BROWSER_ACTION_TIMEOUT_MS
-        value: "8000"
-      - key: AI_TIMEOUT_SECONDS
-        value: "180"
       # --- Plain settings ---
       - key: PAYPAL_ENVIRONMENT
         value: sandbox
