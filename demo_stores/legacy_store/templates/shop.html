@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{PAGE_TITLE}} | {{STORE_NAME}}</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body data-page="shop">
+  <header class="site-header">
+    <a class="brand" href="/">{{STORE_NAME}}</a>
+    <nav class="site-nav" aria-label="Shop">{{SITE_NAV}}</nav>
+    <a class="cart-link" id="go-to-cart" href="/cart">Cart (<span id="cart-count">0</span>)</a>
+  </header>
+
+  <main>
+    <p class="breadcrumb"><a href="/">Home</a> / {{PAGE_TITLE}}</p>
+    <h1>{{PAGE_TITLE}}</h1>
+    <p class="description">{{PRODUCT_COUNT}} products, written and made for people who love writing by hand.</p>
+    <div class="product-grid">{{PRODUCT_GRID}}</div>
+    <p class="notice" id="cart-notice" role="status"></p>
+  </main>
+
+  <footer class="site-footer">{{STORE_NAME}} is a demo store for CheckoutPilot. No real payments.</footer>
+
+  <script src="/static/cart.js"></script>
+  <script src="/static/shop.js"></script>
+</body>
+</html>

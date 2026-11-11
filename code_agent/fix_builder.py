@@ -102,7 +102,8 @@ def _check_upgrade(before: dict[str, str], after: dict[str, str], issue_ids: lis
         if not path.endswith(".html") or not server_code:
             continue
         for name in sorted(set(PLACEHOLDER.findall(text))):
-            if "{{" + name + "}}" not in server_code:
+            # Filled either literally ("{{NAME}}") or by name from a dict of values ("NAME": ...).
+            if "{{" + name + "}}" not in server_code and f'"{name}"' not in server_code:
                 problems.append(f"{path} uses {{{{{name}}}}} but the server never fills it in.")
     if "no_paypal_on_cart" in issue_ids:
         carts = [t for p, t in after.items() if p.endswith(".html") and "cart" in Path(p).name.lower()]
