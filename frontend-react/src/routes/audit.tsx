@@ -17,7 +17,7 @@ import {
 } from "@/components/app/ui";
 import type { Severity } from "@/lib/checkout/types";
 import { IssuesGrid } from "@/components/app/IssuesGrid";
-import { EXAMPLE_STORES } from "@/components/app/Guide";
+import { EXAMPLE_STORES, REAL_STORES } from "@/components/app/Guide";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/audit")({
@@ -133,6 +133,31 @@ function AuditPage() {
                 <span className="block text-sm font-medium text-foreground">{ex.label}</span>
                 <span className="block text-xs text-muted-foreground">
                   <span className="font-mono">{ex.url}</span> · {ex.hint}
+                </span>
+              </button>
+            ))}
+          </div>
+          <p className="text-xs text-muted-foreground mt-4 mb-2">
+            Or scan a <b className="text-foreground">real public store</b> (scan and recommendations only):
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {REAL_STORES.map((ex) => (
+              <button
+                key={ex.url}
+                type="button"
+                disabled={running}
+                onClick={() => {
+                  setUrl(ex.url);
+                  setTouched(false);
+                }}
+                className={cn(
+                  "rounded-lg border px-3 py-2 text-left transition hover:border-primary/50",
+                  url === ex.url ? "border-primary bg-primary/5" : "border-border bg-card",
+                )}
+              >
+                <span className="block text-sm font-medium text-foreground">{ex.label}</span>
+                <span className="block text-xs text-muted-foreground">
+                  <span className="font-mono">{new URL(ex.url).hostname}</span> · {ex.hint}
                 </span>
               </button>
             ))}

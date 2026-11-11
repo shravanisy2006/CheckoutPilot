@@ -20,6 +20,10 @@ from scanner.selectors import NavigationSelectors
 from scanner.url_validator import _localhost_scans_enabled
 
 
+SETTLE_TIMEOUT_MS = 8000  # max wait for a page to finish loading / show text (each)
+MIN_TEXT_CHARS = 40  # fewer visible characters than this = a blank page
+
+
 class StoreNavigator:
     """
     Navigates an e-commerce store across product -> cart -> checkout pages.
@@ -170,6 +174,31 @@ class StoreNavigator:
                 pass
         return False, None
 
+    async def settle(self) -> int:
+        """Wait until the page has really rendered; return how many visible text characters it shows.
+
+        Many real stores build the page with JavaScript after "DOMContentLoaded", so a screenshot
+        taken right away is blank. We wait for the load event and for visible text (each wait is
+        capped, so a slow or odd page never blocks the scan).
+        """
+        try:
+            await self.page.wait_for_load_state("load", timeout=SETTLE_TIMEOUT_MS)
+        except Exception:
+            pass
+        try:
+            await self.page.wait_for_function(
+                f"() => document.body && document.body.innerText.trim().length >= {MIN_TEXT_CHARS}",
+                timeout=SETTLE_TIMEOUT_MS,
+            )
+        except Exception:
+            pass
+        await self.page.wait_for_timeout(400)
+        try:
+            return int(await self.page.evaluate(
+                "() => document.body ? document.body.innerText.trim().length : 0"))
+        except Exception:
+            return 0
+
     async def capture_page_evidence(
         self,
         step: str,
@@ -177,12 +206,22 @@ class StoreNavigator:
         success: bool = True,
         error: str = "",
         warnings: list[str] | None = None,
+        reached: bool = True,
     ) -> dict:
         """
         Capture screenshots, page HTML, loaded script URLs, and PayPal elements.
 
+        ``reached`` = the shopper journey really got here (e.g. a product was added before the
+        cart page). ``verified`` in the result = reached, loaded, and not blank: only verified
+        pages are used for "PayPal is missing on this page" findings.
+
         Returns a dictionary conforming to the CheckoutPilot scanner schema.
         """
+        warnings = list(warnings or [])
+        text_chars = await self.settle() if success else 0
+        blank = text_chars < MIN_TEXT_CHARS
+        if success and blank:
+            warnings.append(f"The {step} page looked blank (it may need more time or block automated browsers).")
         current_url = self.page.url or ""
         current_title = ""
         try:
@@ -250,7 +289,10 @@ class StoreNavigator:
             "pay_later_messaging": pay_later_messaging,
             "success": success,
             "error": error,
-            "warnings": list(warnings or []),
+            "warnings": warnings,
+            "text_chars": text_chars,
+            "blank": blank,
+            "verified": bool(success and reached and not blank),
         }
 
     async def walk_store(self, store_url: str, viewport: str = "desktop") -> list[dict]:
@@ -306,11 +348,16 @@ class StoreNavigator:
                     "No distinct product link or Add to Cart button detected; captured landing page."
                 )
 
-        # Record product step evidence
+        # Record product step evidence (a real product page has an Add to Cart button)
+        await self.settle()
+        on_product_page, _ = await self.find_first(self.selectors.add_to_cart, timeout_ms=1500)
+        if not on_product_page:
+            product_warnings.append("Product page not confirmed (no Add to Cart button), so PayPal on it was not checked.")
         product_evidence = await self.capture_page_evidence(
             step="product",
             viewport=viewport,
             warnings=product_warnings,
+            reached=bool(on_product_page),
         )
         pages.append(product_evidence)
 
@@ -329,7 +376,9 @@ class StoreNavigator:
         if clicked_cart_btn:
             await self.page.wait_for_timeout(1000)
         else:
-            cart_warnings.append("Add to Cart button was not found on product page.")
+            cart_warnings.append(
+                "Add to Cart button was not found on product page, so the cart was empty and PayPal on "
+                "the cart was not checked.")
 
         # If not redirected to cart automatically, find and click Go to Cart
         current_url_lower = (self.page.url or "").lower()
@@ -366,6 +415,7 @@ class StoreNavigator:
             success=cart_step_success,
             error=cart_step_error,
             warnings=cart_warnings,
+            reached=bool(clicked_cart_btn),  # an empty cart says nothing about PayPal on the cart
         )
         pages.append(cart_evidence)
 
@@ -411,6 +461,7 @@ class StoreNavigator:
             success=checkout_step_success,
             error=checkout_step_error,
             warnings=checkout_warnings,
+            reached=bool(cart_evidence.get("verified")),  # checkout with an empty cart isn't real
         )
         pages.append(checkout_evidence)
 

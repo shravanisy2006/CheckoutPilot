@@ -121,6 +121,8 @@ def select_screenshots(scan_data: dict) -> tuple[list[str], list[str], list[str]
     warnings: list[str] = []
     for step in ("cart", "checkout"):
         for page in get_pages(scan_data, step):
+            if not page.get("verified", True):
+                continue  # blank or not really reached: nothing for the vision model to judge
             path = page.get("screenshot_path") or ""
             if not path or not Path(path).is_file():
                 continue
